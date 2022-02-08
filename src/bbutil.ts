@@ -1,6 +1,6 @@
 import { NS } from "@ns";
 
-export function llog(ns: NS, str: string, ...args: string[]): void {
+export function llog(ns: NS, str: string, ...args: (string | number)[]): void {
     ns.print(ns.sprintf("%8s " + str, new Date().toLocaleTimeString("it-IT"), ...args));
 }
 

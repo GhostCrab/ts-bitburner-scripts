@@ -1,7 +1,7 @@
 import { NS } from '@ns'
 
-let lastEl;
-const roots = [];
+let lastEl: Element;
+const roots: Element[] = [];
 
 function stFormat(ns, ms, showms = true, showfull = false) {
     let timeLeft = ms;
@@ -97,17 +97,22 @@ function addDouble() {
     return [newEl1, newEl2];
 }
 
-function addProgress() {
+function addProgress(): [(Element | null), (Element | null)] {
     const self = globalThis;
     const doc = self["document"];
     const hook0 = doc.getElementById("overview-extra-hook-0");
-    const hookRootEl = hook0.parentElement.parentElement;
+    let hookRootEl: Element;
+    if(hook0 && hook0.parentElement && hook0.parentElement.parentElement)
+        hookRootEl = hook0.parentElement.parentElement
+    else
+        return [null, null]
     const overviewEl = hookRootEl.parentElement;
     const hackProgressEl = overviewEl.children[3];
 
-    const newRootEl = hackProgressEl.cloneNode(true);
-    const newSub1 = newRootEl.firstChild.firstChild;
-    const newSub2 = newRootEl.firstChild.firstChild.firstChild;
+    const newRootEl: Element = hackProgressEl.cloneNode(true);
+
+    const newSub1 = newRootEl.children[0].children[0]
+    const newSub2 = newRootEl.children[0].children[0].children[0];
 
     if (lastEl === undefined) lastEl = hookRootEl;
 
@@ -134,10 +139,16 @@ export async function main(ns : NS) : Promise<void> {
     const incomeEl = addSingle();
     const [stateEl, countdownEl] = addDouble();
     const [hackProgressEl1, hackProgressEl2] = addProgress();
+    if (hackProgressEl1 === null || hackProgressEl2 === null)
+        return
+
     addBottomLine();
 
     ns.atExit(function () {
-        for (const root of roots) root.parentNode.removeChild(root);
+        for (const root of roots) {
+            if (root.parentNode)
+                root.parentNode.removeChild(root);
+        }
     });
 
     const port = ns.getPortHandle(1);
@@ -146,8 +157,8 @@ export async function main(ns : NS) : Promise<void> {
     let fullTime = 1000;
     while (true) {
         if (!port.empty()) {
-            const data = port.peek();
-            startTime = data[0].getTime();
+            const data = JSON.parse(port.peek().toString());
+            startTime = new Date(data[0]).getTime();
             endTime = new Date(startTime + data[1]).getTime();
             fullTime = endTime - startTime;
 

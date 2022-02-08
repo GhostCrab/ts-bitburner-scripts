@@ -41,8 +41,8 @@ export async function main(ns: NS): Promise<void> {
         return;
     }
 
-    //const env = new SmartHackEnv(ns, orderedTargetArr[0].target, executableHosts);
-    const env = new SmartHackEnv(ns, "ecorp", executableHosts);
+    const env = new SmartHackEnv(ns, orderedTargetArr[0].target, executableHosts);
+    //const env = new SmartHackEnv(ns, "ecorp", executableHosts);
     await env.init(ns);
     while (await env.refresh(ns));
 }

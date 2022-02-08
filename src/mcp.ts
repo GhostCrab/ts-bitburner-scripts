@@ -36,7 +36,7 @@ class Augmentation {
         this.installed = installedAugs.includes(this.name);
         this.purchaseable = factionRep >= this.rep;
         let dep = ns.getAugmentationPrereq(this.name)[0];
-        if (dep !== undefined && (ownedAugs.includes(dep) || installedAugs.includes(dep))) dep = "";
+        if (dep === undefined || (ownedAugs.includes(dep) || installedAugs.includes(dep))) dep = "";
         this.dep = dep;
         let installedStr = this.installed
             ? "INSTALLED"

@@ -678,13 +678,13 @@ export class SmartHackEnv {
 
         const port = ns.getPortHandle(1);
         port.clear();
-        port.write([
+        port.write(JSON.stringify([
             new Date(),
             this.cycleBatchTime,
             this.targetname,
-            ns.getScriptIncome(ns.getScriptName(), ns.getHostname(), ...ns.args.map((a) => a.toString())).toString(),
+            ns.getScriptIncome(ns.getScriptName(), ns.getHostname(), ...ns.args).toString(),
             "SMART",
-        ]);
+        ]));
 
         this.logStats(ns);
 

@@ -1,9 +1,9 @@
-import { NS } from '@ns'
+import { NS } from "@ns";
 import { cleanLogs, llog } from "bbutil";
 
 const CITIES = ["Aevum", "Chongqing", "Sector-12", "New Tokyo", "Ishima", "Volhaven"];
 
-export async function main(ns : NS) : Promise<void> {
+export async function main(ns: NS): Promise<void> {
     cleanLogs(ns);
 
     const agDivName = "Agriculture";
@@ -348,7 +348,7 @@ export async function main(ns : NS) : Promise<void> {
             ns.corporation.hireEmployee(agDivName, city);
         }
 
-		await ns.corporation.setAutoJobAssignment(agDivName, city, "Unassigned", 9);
+        await ns.corporation.setAutoJobAssignment(agDivName, city, "Unassigned", 9);
 
         await ns.corporation.setAutoJobAssignment(agDivName, city, "Operations", 2);
         await ns.corporation.setAutoJobAssignment(agDivName, city, "Engineer", 2);
@@ -738,8 +738,8 @@ export async function main(ns : NS) : Promise<void> {
             ns.corporation.hireEmployee(tbDivName, tbRDCity);
         }
 
-		await ns.corporation.setAutoJobAssignment(tbDivName, tbRDCity, "Unassigned", 30);
-			
+        await ns.corporation.setAutoJobAssignment(tbDivName, tbRDCity, "Unassigned", 30);
+
         await ns.corporation.setAutoJobAssignment(tbDivName, tbRDCity, "Operations", 6);
         await ns.corporation.setAutoJobAssignment(tbDivName, tbRDCity, "Engineer", 6);
         await ns.corporation.setAutoJobAssignment(tbDivName, tbRDCity, "Business", 6);
@@ -776,7 +776,7 @@ export async function main(ns : NS) : Promise<void> {
 
     let doUpdate = false;
     let didUpdate = false;
-    const productTracker = {};
+    const productTracker: Record<string, { state: string; mult: number; min: number; max: number}> = {};
 
     // initialize product tracker
     ns.corporation
@@ -785,7 +785,7 @@ export async function main(ns : NS) : Promise<void> {
         .forEach((product) => {
             productTracker[product.name] = {
                 state: "HOLD", // ["HOLD", "SEARCH", "INC", "DEC"]
-                mult: Number(product.sCost.slice(3)),
+                mult: Number(product.sCost.toString().slice(3)),
                 min: 0,
                 max: 0,
             };
@@ -808,7 +808,10 @@ export async function main(ns : NS) : Promise<void> {
             didUpdate = true;
 
             // Attempt to max out Wilson Analytics
-            while (ns.corporation.getUpgradeLevelCost("Wilson Analytics") < ns.corporation.getCorporation().funds * 0.5) {
+            while (
+                ns.corporation.getUpgradeLevelCost("Wilson Analytics") <
+                ns.corporation.getCorporation().funds * 0.5
+            ) {
                 const upgradeCost = ns.corporation.getUpgradeLevelCost("Wilson Analytics");
                 llog(ns, "Purchasing %s upgrade for %s", "Wilson Analytics", ns.nFormat(upgradeCost, "($0.000a)"));
                 ns.corporation.levelUpgrade("Wilson Analytics");
@@ -849,7 +852,7 @@ export async function main(ns : NS) : Promise<void> {
                 }
 
                 if (products.length > 1) {
-                    newMult = Number(products[products.length - 2].sCost.slice(3));
+                    newMult = Number(products[products.length - 2].sCost.toString().slice(3));
                 }
 
                 llog(
@@ -872,7 +875,7 @@ export async function main(ns : NS) : Promise<void> {
             // mess with the price of products
             for (const product of products) {
                 if (product.developmentProgress < 100) continue;
-                let mpMult = Number(product.sCost.slice(3));
+                let mpMult = Number(product.sCost.toString().slice(3));
                 let reduceMult = false;
                 let increaseMult = 0;
                 for (const [qty, prod, sell] of Object.values(product.cityData)) {
@@ -998,7 +1001,7 @@ export async function main(ns : NS) : Promise<void> {
             }
 
             // if any of the other office sizes are < 20% the size of the Aevum office, attempt to increase their size
-            const cityIncrease = {};
+            const cityIncrease: Record<string, { inc: number; cost: number }> = {};
             for (const city of ns.corporation.getDivision(tbDivName).cities) {
                 // iterate as long as this city's office size is less than 20% of Aevum's and the price
                 // of upgrading is less than 5% of the corporation's funds
