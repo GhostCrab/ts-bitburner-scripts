@@ -1,0 +1,81 @@
+[ ] mcp.js: calculate true cost of all augs and only buy when the cash is available
+[ ] mcp.js: if we dont have enough money to purchase all queued augs, skip augs that are from donatable factions
+[ ] general: outline path to ascension
+    [ ] figure out overlapping augs for mainline hack factions
+    [ ] find all non-hack factions with hack or rep augs
+    [ ] make a list of all faction:aug pairs in order of rep and decide how much rep is required for each outline
+    [ ] write library that evaluates progress and can be queried to ask for next faction to join/work/contract
+[ ] general: transtion codebase to vscode-template
+    - dependent on if work PC can run node.js ts compiler
+    - https://github.com/bitburner-official/vscode-template
+[ ] sleeve.js: add mode to work for faction/job, prioritized by needed augs
+    - depends on library that figures out ascension goals and progress
+    [ ] basic/brute implementation can be to work joined factions in order of totalRep if they have outstanding
+        augs and have not hit the donation limit
+[ ] NEW: write script to track work and quit and move on to next milestone when any of the following
+    - working and hit faction join limit
+    - contracting and hit donation limit
+    - contracting and hit price of target aug (might not be most expensive aug if another faction sells duplicates)
+    - next milestone functionality depends on library that figures out ascension goals and progress
+    [ ] basic/brute implementation can be to quit on basic limits (max aug/domation limit/faction join limit) and
+        move on to the faction with the next highest rep that has not hit the limits
+[ ] NEW: write orchestrator to distribute and execute share.js script
+[ ] gang.js: use an arg to switch between hacking/combat gang mode or figure out programatically
+[ ] gang.js: change member's task from training to useful tasks when stat multiplier is > x55 (actual is somewhere around x61, but has to at least be > x30) and stat > 10000
+[ ] gang.js: shuffle around tasks such that in-traing members are training and active members are balanced between income, rep and wanted
+    - focus on rep over income when < some number of augs are queued up
+    - focus on rep when more members can be hired
+    - focus on income when we dont need rep
+    - always have enough wanted reduction to counter actions of other active members
+[ ] hack: instead of canceling a batch when the script finish time finishes early, update the offset time to be accurate, re-insert it into the
+    execute list and resort the execute list
+[ ] mcp.js: automatically join factions that dont exclude other factions
+[ ] sleeve.js: buy augmentations before reboot
+[ ] hacknet.js: generate coding contracts while profitable
+[ ] stat.js: write status script
+[ ] mcp.js: when top rep faction is my gang, dont buy neuroflux from them and dont factor their rep
+    - Time played/since aug/since node
+    - Status of scripts
+        - cct
+        - corp
+        - clock
+        - gang
+        - smart_hack
+        - hacknet/leech
+    - sleeve status
+    - hacknet income/target
+    - corp income
+    - gang stats (members, income)
+    - karma
+    - bought servers/sizes
+    - home server size
+
+
+
+=== Bitnodes ===
+
+BN3  Corporations: 1/3 
+BN6  Bladeburner: 1/3
+BN7  Bladeburner Auto: 0/3
+BN8  Stocks: 0/3
+BN9  Hacknet: 1/3 * 
+BN10 Sleeve: 1/3
+BN11 Hard Mode: 0/3
+BN12 Recursion: 3/~
+BN13 Machine God: 0/3
+
+Priority:
+
+9.2-3
+10.2-3
+3.2-3
+12.3-10?
+
+
+??
+11.1-3
+13.1-3
+8.1-3
+6.2-3
+7.1-3
+12.1~
