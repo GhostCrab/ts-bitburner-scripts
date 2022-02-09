@@ -36,7 +36,7 @@ class Augmentation {
         this.installed = installedAugs.includes(this.name);
         this.purchaseable = factionRep >= this.rep;
         let dep = ns.getAugmentationPrereq(this.name)[0];
-        if (dep === undefined || (ownedAugs.includes(dep) || installedAugs.includes(dep))) dep = "";
+        if (dep === undefined || ownedAugs.includes(dep) || installedAugs.includes(dep)) dep = "";
         this.dep = dep;
         let installedStr = this.installed
             ? "INSTALLED"
@@ -224,7 +224,6 @@ export async function main(ns: NS): Promise<void> {
         ns.tprintf("WARNING: Unable to buy augmentations when actively working for the top faction");
     }
 
-    ns.tprintf("============================");
     let mult = 1;
     const srcFile11 = ns.getOwnedSourceFiles().find((x) => x.n === 11);
     const srcFile11Lvl = srcFile11 ? srcFile11.lvl : 0;
@@ -289,6 +288,10 @@ export async function main(ns: NS): Promise<void> {
         affordableAugs = affordableAugs.slice(startAug);
     }
 
+    if (affordableAugs.length === 0) return;
+
+    ns.tprintf("============================");
+
     total = 0;
     mult = 1;
     const startmoney = ns.getPlayer().money;
@@ -301,8 +304,10 @@ export async function main(ns: NS): Promise<void> {
 
     // see how many Neuroflux Governors we can buy
     const topFactionRep =
-        (ns.getPlayer().currentWorkFactionName === sortedFactions[0] ? ns.getPlayer().workRepGained : 0) +
-        ns.getFactionRep(sortedFactions[0]);
+        sortedFactions.length > 0
+            ? (ns.getPlayer().currentWorkFactionName === sortedFactions[0] ? ns.getPlayer().workRepGained : 0) +
+              ns.getFactionRep(sortedFactions[0])
+            : 0;
     let ngPrice = ns.getAugmentationPrice("NeuroFlux Governor") * (ns.args[0] && buysafe ? 1 : mult);
     let ngRepReq = ns.getAugmentationRepReq("NeuroFlux Governor");
     let nfCount = 1;

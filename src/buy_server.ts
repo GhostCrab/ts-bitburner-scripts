@@ -1,14 +1,13 @@
 import { NS } from '@ns'
 export async function main(ns : NS) : Promise<void> {
-    ns = _ns;
+    let ram = Number(ns.args[0]);
+    let count = Number(ns.args[1]);
 
-    let ram = ns.args[0];
-    let count = ns.args[1];
     const cash = ns.getServerMoneyAvailable("home");
 
-    if (count === undefined) count = 1;
+    if (isNaN(count)) count = 1;
 
-    if (ram === undefined) {
+    if (isNaN(ram)) {
         // ns.tprintf("Calculating maximum ram allocation for new server (Cash: %s)", ns.nFormat(cash, '($0.000a)'))
         ram = 0;
         for (let i = 0; i <= 20; i++) {

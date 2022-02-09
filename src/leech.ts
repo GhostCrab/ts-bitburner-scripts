@@ -6,7 +6,7 @@ import { NS } from "@ns";
 // Sell for Money
 
 export async function main(ns: NS): Promise<void> {
-    while (false) {
+    while (true) {
         while (ns.hacknet.numHashes() > ns.hacknet.hashCost("Sell for Money")) ns.hacknet.spendHashes("Sell for Money");
         await ns.sleep(1000);
     }

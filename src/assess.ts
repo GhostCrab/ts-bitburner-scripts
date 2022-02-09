@@ -1,7 +1,15 @@
 import { NS } from "@ns";
 
 export async function main(ns: NS): Promise<void> {
-    const targetServer = ns.getServer(ns.args[0]);
+    if (typeof ns.args[0] !== "string" && typeof ns.args[0] !== undefined) {
+        ns.tprintf("ERROR: Bad Server Name: %s", ns.args[0]);
+        return;
+    }
+    if (typeof ns.args[0] === "string" && !ns.serverExists(ns.args[0])) {
+        ns.tprintf("ERROR: Server Doesn't Exist: %s", ns.args[0]);
+        return;
+    }
+    const targetServer = ns.getServer();
     const availableFunds = targetServer.moneyAvailable <= 1 ? 1 : targetServer.moneyAvailable;
     const growthRequired = targetServer.moneyMax / availableFunds;
     let growThreadsNeeded = 0;

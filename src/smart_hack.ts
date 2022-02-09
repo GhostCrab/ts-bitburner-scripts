@@ -18,7 +18,7 @@ export async function main(ns: NS): Promise<void> {
     const allHostnames = allHosts(ns);
     const executableHosts = allHostnames
         .filter(canExecuteOnServer.bind(null, ns))
-        //.filter((x) => x.indexOf("hacknet-node") === -1);
+        .filter((x) => x.indexOf("hacknet-node") === -1);
     const targetArr = allHostnames.filter(serverIsHackable.bind(null, ns)).filter((x) => ns.getServerMaxMoney(x) > 1);
 
     let orderedTargetArr: targetIncome[] = [];
