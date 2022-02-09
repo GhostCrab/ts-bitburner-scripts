@@ -307,7 +307,7 @@ export async function main(ns: NS): Promise<void> {
             totalProduction += stats.production;
         }
 
-        hashServerUpgrades = hashServerUpgrades.sort((a, b) => b.upgradeValue - a.upgradeValue); //.filter(a => (a.upgradeValue * 1000000000) > 1.5);
+        hashServerUpgrades = hashServerUpgrades.sort((a, b) => b.upgradeValue - a.upgradeValue).filter(a => (a.upgradeValue * 1000000000) > 0.15);
 
         for (const upg of hashServerUpgrades) ns.tprintf(upg.toString(ns, totalProduction));
 
@@ -331,8 +331,7 @@ export async function main(ns: NS): Promise<void> {
             totalProduction += stats.production;
         }
 
-        hashServerUpgrades = hashServerUpgrades.sort((a, b) => b.upgradeValue - a.upgradeValue); //.filter(a => (a.upgradeValue * 1000000000) > 0.15);
-        //hashServerUpgrades.sort((a, b) => b.upgradeValue - a.upgradeValue);
+        hashServerUpgrades = hashServerUpgrades.sort((a, b) => b.upgradeValue - a.upgradeValue).filter(a => (a.upgradeValue * 1000000000) > 0.15);
 
         const targetUpgrade = hashServerUpgrades[0];
         if (targetUpgrade) {

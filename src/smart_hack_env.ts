@@ -689,7 +689,7 @@ export class SmartHackEnv {
         this.logStats(ns);
 
         await this.execute(ns);
-        this.resetThreads();
+        this.resetThreads()
 
         return true;
     }

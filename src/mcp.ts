@@ -288,7 +288,7 @@ export async function main(ns: NS): Promise<void> {
         affordableAugs = affordableAugs.slice(startAug);
     }
 
-    if (affordableAugs.length === 0) return;
+    //if (affordableAugs.length === 0) return;
 
     ns.tprintf("============================");
 
