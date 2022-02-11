@@ -1,97 +1,7 @@
-import { NS, AugmentationStats } from "@ns";
+import { NS } from "@ns";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { doBuyAndSoftenAll, doBackdoors, ALL_FACTIONS, stFormat } from "bbutil";
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function printAugStats(ns: NS, stats: AugmentationStats) {
-    for (const [key, val] of Object.entries(stats)) {
-        ns.tprintf("%30s %s", key, val);
-    }
-}
-
-class Augmentation {
-    name: string;
-    faction: string;
-    price: number;
-    rep: number;
-    stats: AugmentationStats;
-    owned: boolean;
-    installed: boolean;
-    purchaseable: boolean;
-    dep: string;
-    str: string;
-
-    constructor(ns: NS, name: string, faction: string) {
-        const ownedAugs = ns.getOwnedAugmentations(true);
-        const installedAugs = ns.getOwnedAugmentations();
-        const factionRep =
-            (ns.getPlayer().currentWorkFactionName === faction ? ns.getPlayer().workRepGained : 0) +
-            ns.getFactionRep(faction);
-        this.name = name;
-        this.faction = faction;
-        this.price = ns.getAugmentationPrice(this.name);
-        this.rep = ns.getAugmentationRepReq(this.name);
-        this.stats = ns.getAugmentationStats(this.name);
-        this.owned = ownedAugs.includes(this.name);
-        this.installed = installedAugs.includes(this.name);
-        this.purchaseable = factionRep >= this.rep;
-        let dep = ns.getAugmentationPrereq(this.name)[0];
-        if (dep === undefined || ownedAugs.includes(dep) || installedAugs.includes(dep)) dep = "";
-        this.dep = dep;
-        let installedStr = this.installed
-            ? "INSTALLED"
-            : this.owned
-            ? "OWNED"
-            : this.purchaseable
-            ? "PURCHASEABLE"
-            : "";
-
-        if (ns.getPlayer().currentWorkFactionName === faction && installedStr === "") {
-            const repGainPerMs = (ns.getPlayer().workRepGainRate * 5) / 1000;
-            installedStr = stFormat(ns, (this.rep - factionRep) / repGainPerMs);
-        }
-        this.str = ns.sprintf(
-            "%s: %s - %s [%s] %s",
-            this.faction,
-            this.name,
-            ns.nFormat(this.price, "$0.000a"),
-            ns.nFormat(this.rep, "0.000a"),
-            installedStr
-        );
-    }
-
-    toString() {
-        return this.str;
-    }
-
-    isHackUseful() {
-        if (this.name === "Neuroflux Governor") return false;
-        //return true;
-        // if (this.stats.company_rep_mult) return true;
-        // if (this.stats.faction_rep_mult) return true;
-        if (this.stats.hacking_chance_mult) return true;
-        if (this.stats.hacking_exp_mult) return true;
-        if (this.stats.hacking_grow_mult) return true;
-        if (this.stats.hacking_money_mult) return true;
-        if (this.stats.hacking_mult) return true;
-        if (this.stats.hacking_speed_mult) return true;
-        if (this.stats.hacknet_node_core_cost_mult) return true;
-        if (this.stats.hacknet_node_level_cost_mult) return true;
-        if (this.stats.hacknet_node_money_mult) return true;
-        if (this.stats.hacknet_node_purchase_cost_mult) return true;
-        if (this.stats.hacknet_node_ram_cost_mult) return true;
-        if (
-            this.name === "BitRunners Neurolink" ||
-            this.name === "CashRoot Starter Kit" ||
-            this.name === "PCMatrix" ||
-            this.name === "Neuroreceptor Management Implant" ||
-            this.name === "The Red Pill"
-        )
-            return true;
-
-        return false;
-    }
-}
+import { doBuyAndSoftenAll, doBackdoors, ALL_FACTIONS, stFormat } from "lib/util";
+import { Augmentation } from "lib/augmentation/augmentation";
 
 export async function main(ns: NS): Promise<void> {
     doBuyAndSoftenAll(ns);
@@ -328,9 +238,15 @@ export async function main(ns: NS): Promise<void> {
             ngPrice = ngPrice * 1.14 * multmult;
             ngRepReq *= 1.14;
         } else {
+			ns.tprintf(
+                "%50s - %9s %s)",
+                "(NeuroFlux Governor +" + nfCount.toString(),
+                ns.nFormat(ngPrice, "$0.000a"),
+                ns.nFormat(ngRepReq, "0.000a")
+            );
             break;
         }
     }
 
-    ns.tprintf("\n%50s - %9s", "Total", ns.nFormat(total, "$0.000a"));
+    ns.tprintf("\n%50s - %9s (%s)", "Total", ns.nFormat(total, "$0.000a"), ns.nFormat(total + ngPrice, "$0.000a"));
 }

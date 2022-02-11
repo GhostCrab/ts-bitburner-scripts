@@ -1,5 +1,5 @@
 import { NS } from "@ns";
-import { allHosts } from "bbutil";
+import { allHosts } from "lib/util";
 
 export async function main(ns: NS): Promise<void> {
     for (const hostname of allHosts(ns)) {

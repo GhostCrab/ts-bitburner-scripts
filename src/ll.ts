@@ -1,14 +1,18 @@
 import { NS } from '@ns'
 function isScript(filename: string) {
-    return filename.indexOf(".js") != -1;
+    return filename.indexOf(".js") !== -1 && filename.indexOf("/lib") === -1;
 }
 
 function isProgram(filename: string) {
-    return filename.indexOf(".exe") != -1;
+    return filename.indexOf(".exe") !== -1;
 }
 
 function isOther(filename: string) {
-    return !isScript(filename) && !isProgram(filename);
+    return !isScript(filename) && !isProgram(filename) && !isLib(filename);
+}
+
+function isLib(filename: string) {
+	return filename.indexOf(".js") !== -1 && filename.indexOf("/lib") !== -1;
 }
 
 export async function main(ns : NS) : Promise<void> {
@@ -19,20 +23,32 @@ export async function main(ns : NS) : Promise<void> {
 
     const filenames = ns.ls(hostname);
     const scriptnames = filenames.filter(isScript);
+	const libnames = filenames.filter(isLib);
     const programnames = filenames.filter(isProgram);
     const othernames = filenames.filter(isOther);
 
-    let maxFileLength = 0;
-    scriptnames.map(function (name) {
+    let maxScriptFileLength = 0;
+    libnames.map(function (name) {
         const len = name.length + 2
-        if (len > maxFileLength) maxFileLength = len;
+        if (len > maxScriptFileLength) maxScriptFileLength = len;
     });
 
     if (scriptnames.length) {
         ns.tprintf("======== SCRIPTS ========");
         for (const filename of scriptnames)
             ns.tprintf(
-                `  %-${maxFileLength}s %7.2fGB %s`,
+                `  %-${maxScriptFileLength}s %7.2fGB %s`,
+                filename,
+                ns.getScriptRam(filename, hostname),
+                ns.scriptRunning(filename, hostname) ? "RUNNING" : ""
+            );
+    }
+
+	if (libnames.length) {
+		ns.tprintf("========= LIBS ==========");
+        for (const filename of libnames)
+            ns.tprintf(
+                `  %-${maxScriptFileLength}s %7.2fGB %s`,
                 filename,
                 ns.getScriptRam(filename, hostname),
                 ns.scriptRunning(filename, hostname) ? "RUNNING" : ""
@@ -41,11 +57,11 @@ export async function main(ns : NS) : Promise<void> {
 
     if (programnames.length) {
         ns.tprintf("======== PROGRAMS =======");
-        for (const filename of programnames) ns.tprintf(`  %-${maxFileLength}s`, filename);
+        for (const filename of programnames) ns.tprintf(`  %-${maxScriptFileLength}s`, filename);
     }
 
     if (othernames.length) {
         ns.tprintf("========= OTHER =========");
-        for (const filename of othernames) ns.tprintf(`  %-${maxFileLength}s`, filename);
+        for (const filename of othernames) ns.tprintf(`  %-${maxScriptFileLength}s`, filename);
     }
 }

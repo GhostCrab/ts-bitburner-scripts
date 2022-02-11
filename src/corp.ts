@@ -1,5 +1,5 @@
 import { NS } from "@ns";
-import { cleanLogs, llog } from "bbutil";
+import { cleanLogs, llog } from "lib/util";
 
 const CITIES = ["Aevum", "Chongqing", "Sector-12", "New Tokyo", "Ishima", "Volhaven"];
 

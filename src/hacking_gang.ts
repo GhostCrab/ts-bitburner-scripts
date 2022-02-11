@@ -1,4 +1,5 @@
 import { NS } from "@ns";
+import { llog } from "/lib/util";
 
 export async function main(ns: NS): Promise<void> {
     ns.disableLog("sleep");
@@ -21,20 +22,27 @@ export async function main(ns: NS): Promise<void> {
 
         for (const member of members) {
             const ascmem = ns.gang.getAscensionResult(member.name);
-            ns.print(
-                ns.sprintf(
-                    "%3s:  %10s  %s  %s  %s %10s %s",
-                    member.name,
-                    member.hack_exp.toFixed(2),
-                    member.hack_mult.toFixed(2),
-                    member.hack_asc_mult.toFixed(2),
-                    ascmem !== undefined ? ascmem.hack : 0,
-                    member.hack_asc_points.toFixed(2),
-                    member.upgrades
-                )
+            llog(
+                ns,
+                "%3s:  Hacking: %7s  %5s => %5s (%s)",
+                member.name,
+				ns.nFormat(member.hack, "0,0"),
+                ns.nFormat(member.hack_asc_mult, "(0.0)"),
+                ns.nFormat(ascmem?.hack * member.hack_asc_mult, "0.0"),
+				ns.nFormat(ascmem?.hack, "0.0")
             );
 
-            if (ascmem !== undefined && ascmem.hack > 2) {
+            llog(
+                ns,
+                "     Charisma: %7s  %5s => %5s (%s)",
+				ns.nFormat(member.cha, "0,0"),
+                ns.nFormat(member.cha_asc_mult, "(0.0)"),
+                ns.nFormat(ascmem?.cha * member.cha_asc_mult, "0.0"),
+				ns.nFormat(ascmem?.cha, "0.0")
+            );
+
+
+            if (ascmem !== undefined && (ascmem.hack > 2 || ascmem.cha > 2)) {
                 ns.print(
                     ns.sprintf(
                         "Ascending %s %.2f => %.2f hack multiplier",
@@ -58,7 +66,7 @@ export async function main(ns: NS): Promise<void> {
                     ns.gang.getEquipmentStats(_name)
                 )
             )
-            .filter((eq) => eq.hack !== undefined)
+            .filter((eq) => eq.hack !== undefined || eq.cha !== undefined)
             .sort((a, b) => a.price - b.price);
 
         // for (const eq of combatEquipment) {

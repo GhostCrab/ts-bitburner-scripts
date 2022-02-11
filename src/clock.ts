@@ -1,9 +1,14 @@
 import { NS } from "@ns";
 
+import { HSUpgradeInterface } from "lib/hacknet/hs-upgrade";
+
 let lastEl: HTMLElement;
 const roots: HTMLElement[] = [];
 
 function stFormat(ns: NS, ms: number, showms = true, showfull = false) {
+	if (ms <= 0)
+		return "--"
+
     let timeLeft = ms;
     const hours = Math.floor(ms / (1000 * 60 * 60));
     timeLeft -= hours * (1000 * 60 * 60);
@@ -25,7 +30,7 @@ function stFormat(ns: NS, ms: number, showms = true, showfull = false) {
 }
 
 function insertAfter(newNode: HTMLElement, existingNode: HTMLElement) {
-    if (!existingNode.parentNode) throw 'insertAfter init failed'
+    if (!existingNode.parentNode) throw "insertAfter init failed";
     if (existingNode.nextSibling) return existingNode.parentNode.insertBefore(newNode, existingNode.nextSibling);
     else return existingNode.parentNode.appendChild(newNode);
 }
@@ -40,12 +45,12 @@ function addBottomLine() {
 
     if (!hookRootEl || !newRootEl) throw "addBottomLine init failed";
 
-    const child1 = <HTMLElement>newRootEl?.children[0]?.children[0]
+    const child1 = <HTMLElement>newRootEl?.children[0]?.children[0];
     if (child1) {
         child1.innerText = "";
     }
 
-    const child2 = <HTMLElement>newRootEl?.children[0]?.children[0]
+    const child2 = <HTMLElement>newRootEl?.children[0]?.children[0];
     if (child2) {
         child2.innerText = "";
         child2.removeAttribute("id");
@@ -56,7 +61,7 @@ function addBottomLine() {
     try {
         lastEl = insertAfter(newRootEl, lastEl);
     } catch (e) {
-        throw `${e}; addBottomLine init failed`
+        throw `${e}; addBottomLine init failed`;
     }
 
     roots.push(newRootEl);
@@ -86,7 +91,7 @@ function addSingle() {
     try {
         lastEl = insertAfter(newRootEl, lastEl);
     } catch (e) {
-        throw `${e}; addSingle init failed`
+        throw `${e}; addSingle init failed`;
     }
 
     roots.push(newRootEl);
@@ -120,7 +125,7 @@ function addDouble() {
     try {
         lastEl = insertAfter(newRootEl, lastEl);
     } catch (e) {
-        throw `${e}; addDouble init failed`
+        throw `${e}; addDouble init failed`;
     }
 
     roots.push(newRootEl);
@@ -141,7 +146,7 @@ function addProgress() {
     const newRootEl = <HTMLElement>hackProgressEl?.cloneNode(true);
 
     const newSub1 = <HTMLElement>newRootEl?.children[0]?.children[0];
-    const newSub2 = <HTMLElement>newRootEl?.children[0];
+    const newSub2 = <HTMLElement>newRootEl?.children[0]?.children[0]?.children[0];
 
     // check if anything failed
     if (!newRootEl || !newSub1 || !newSub2) throw "addProgress init failed";
@@ -151,7 +156,7 @@ function addProgress() {
     try {
         lastEl = insertAfter(newRootEl, lastEl);
     } catch (e) {
-        throw `${e}; addProgress init failed`
+        throw `${e}; addProgress init failed`;
     }
 
     roots.push(newRootEl);
@@ -176,21 +181,29 @@ export async function main(ns: NS): Promise<void> {
     });
 
     try {
-        const clockEl = addSingle();
+        const [clockEl, karmaEl] = addDouble();
         const targetEl = addSingle();
         const incomeEl = addSingle();
         const [stateEl, countdownEl] = addDouble();
         const [hackProgressEl1, hackProgressEl2] = addProgress();
 
         addBottomLine();
+        const hacknetProdEl = addSingle();
+        const hacknetTargetEl1 = addSingle();
+        const hacknetTargetEl2 = addSingle();
+        addBottomLine();
 
-        const port = ns.getPortHandle(1);
+		karmaEl.classList.toggle("makeStyles-hack-17", false);
+        karmaEl.classList.add("makeStyles-hp-15");
+
+        const port1 = ns.getPortHandle(1);
+        const port2 = ns.getPortHandle(2);
         let startTime = 0;
         let endTime = 1000;
         let fullTime = 1000;
         while (true) {
-            if (!port.empty()) {
-                const data = JSON.parse(port.peek().toString());
+            if (!port1.empty()) {
+                const data = JSON.parse(port1.peek().toString());
                 startTime = new Date(data[0]).getTime();
                 endTime = new Date(startTime + data[1]).getTime();
                 fullTime = endTime - startTime;
@@ -202,6 +215,9 @@ export async function main(ns: NS): Promise<void> {
                 // let ms = ns.sprintf("%03d", date.getUTCMilliseconds());
                 // clockEl.innerText = date.toLocaleTimeString("it-IT") + "." + ms;
                 clockEl.innerText = date.toLocaleTimeString("it-IT");
+
+                // Update Karma
+                karmaEl.innerText = `k: ${ns.heart.break().toFixed(0)}`;
 
                 // Update Target & Income
                 targetEl.innerText = data[2];
@@ -218,7 +234,7 @@ export async function main(ns: NS): Promise<void> {
                 let wholeValue = Math.floor(nvalue);
 
                 if (startTime === 0 || wholeValue > 100) {
-                    port.clear();
+                    port1.clear();
                     transform = 100;
                     wholeValue = 0;
                 }
@@ -228,6 +244,7 @@ export async function main(ns: NS): Promise<void> {
             } else {
                 const date = new Date();
                 clockEl.innerText = date.toLocaleTimeString("it-IT");
+                karmaEl.innerText = ns.heart.break().toFixed(0).toString();
 
                 targetEl.innerText = "NO TARGET";
                 incomeEl.innerText = "";
@@ -236,10 +253,35 @@ export async function main(ns: NS): Promise<void> {
                 hackProgressEl1.setAttribute("aria-valuenow", "0");
                 hackProgressEl2.setAttribute("style", "transform: translateX(-100%);");
             }
+            if (!port2.empty()) {
+                const data = JSON.parse(port2.peek().toString());
+                const production: number = data[0];
+                const upgrade: HSUpgradeInterface = data[1];
+
+                const totalUpgradeCashProduction = ((production + upgrade.upgradeProductionIncrease) / 4) * 1000000;
+                const totalUpgradePayoffTime = (upgrade.upgradeCost / totalUpgradeCashProduction) * 1000;
+
+                hacknetProdEl.innerText = `hacknet: ${ns.nFormat((production / 4) * 1000000, "($0.0a)")}/s`;
+                hacknetTargetEl1.innerText = ns.sprintf(
+                    "%02d/%s %s",
+                    upgrade.id,
+                    upgrade.type,
+                    stFormat(ns, totalUpgradePayoffTime, false)
+                );
+                hacknetTargetEl2.innerText = ns.sprintf(
+                    "%s %.2f",
+                    ns.nFormat(upgrade.upgradeCost, "($0.0a)"),
+                    upgrade.upgradeValue * 1000000000
+                );
+            } else {
+                hacknetProdEl.innerText = "";
+                hacknetTargetEl1.innerText = "";
+                hacknetTargetEl2.innerText = "";
+            }
 
             await ns.sleep(1000);
         }
     } catch (e) {
-        ns.tprintf("ERROR: %s", e)
+        ns.tprintf("ERROR: %s", e);
     }
 }

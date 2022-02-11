@@ -1,6 +1,6 @@
 import { NS } from "@ns";
-import { allHosts, serverIsHackable, canExecuteOnServer, cleanLogs, doBuyAndSoftenAll } from "bbutil";
-import { SmartHackEnv } from "smart_hack_env";
+import { allHosts, serverIsHackable, canExecuteOnServer, cleanLogs, doBuyAndSoftenAll } from "lib/util";
+import { SmartHackEnv } from "lib/hack/smart_hack_env";
 
 async function calcIncome(ns: NS, target: string, hosts: string[], simMinutes = 2) {
     return await new SmartHackEnv(ns, target, hosts).fastSim(ns, 1000 * 60 * simMinutes);

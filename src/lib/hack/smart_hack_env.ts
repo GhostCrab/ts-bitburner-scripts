@@ -1,10 +1,10 @@
 import { NS, Server, Player } from "@ns";
-import { stFormat, stdFormat } from "bbutil";
+import { stFormat, stdFormat } from "lib/util";
 
 export const TSPACER = 400;
-export const WEAKENNS = "weaken.js";
-export const GROWNS = "grow.js";
-export const HACKNS = "hack.js";
+export const WEAKENNS = "/lib/exec/weaken.js";
+export const GROWNS = "/lib/exec/grow.js";
+export const HACKNS = "/lib/exec/hack.js";
 
 type Cycle = {
     cycleTotal: number;

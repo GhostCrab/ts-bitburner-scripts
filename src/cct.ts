@@ -1,15 +1,7 @@
 import { NS } from "@ns";
-import { allHosts } from "bbutil";
+import { allHosts } from "lib/util";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function printCCT(ns, cct) {
-    ns.tprintf("%s %s:", cct.host, cct.name);
-    ns.tprintf("  %s", cct.type);
-    ns.tprintf("  %s", cct.desc);
-    ns.tprintf("  %s", cct.data);
-}
-
-function answerCCT(ns, cct, answer) {
+function answerCCT(ns: NS, cct: CCT, answer: number | string[]) {
     const reward = ns.codingcontract.attempt(answer, cct.name, cct.host, { returnReward: true });
 
     if (reward === "") {
@@ -21,7 +13,20 @@ function answerCCT(ns, cct, answer) {
 }
 
 class CCT {
-    constructor(ns, hostname, filename) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    [index: string]:any
+
+    name: string;
+    host: string;
+    type: string;
+    desc: string;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    solve: any;
+
+    constructor(ns: NS, hostname: string, filename: string) {
         this.name = filename;
         this.host = hostname;
         this.type = ns.codingcontract.getContractType(filename, hostname);
@@ -32,14 +37,15 @@ class CCT {
 
         //this.print(ns);
     }
-    print(ns) {
+
+    print(ns: NS) {
         ns.tprintf("%s %s:", this.host, this.name);
         ns.tprintf("  %s", this.type);
         ns.tprintf("  %s", this.desc);
         ns.tprintf("  %s", this.data);
     }
 
-    static solveTotalWaystoSum(ns, cct) {
+    static solveTotalWaystoSum(ns: NS, cct: CCT) {
         const ways: number[] = [1];
         ways.length = cct.data + 1;
         ways.fill(0, 1);
@@ -51,7 +57,8 @@ class CCT {
 
         answerCCT(ns, cct, ways[cct.data]);
     }
-    static solveSubarraywithMaximumSum(ns, cct) {
+
+    static solveSubarraywithMaximumSum(ns: NS, cct: CCT) {
         const nums: number[] = cct.data.slice();
         for (let i = 1; i < nums.length; i++) {
             nums[i] = Math.max(nums[i], nums[i] + nums[i - 1]);
@@ -59,7 +66,8 @@ class CCT {
 
         answerCCT(ns, cct, Math.max(...nums));
     }
-    static solveSpiralizeMatrix(ns, cct) {
+
+    static solveSpiralizeMatrix(ns: NS, cct: CCT) {
         const spiral = [];
         const m = cct.data.length;
         const n = cct.data[0].length;
@@ -108,7 +116,8 @@ class CCT {
 
         answerCCT(ns, cct, spiral);
     }
-    static solveArrayJumpingGame(ns, cct) {
+
+    static solveArrayJumpingGame(ns: NS, cct: CCT) {
         const n = cct.data.length;
         let i = 0;
         for (let reach = 0; i < n && i <= reach; ++i) {
@@ -117,15 +126,27 @@ class CCT {
 
         answerCCT(ns, cct, i === n ? 1 : 0);
     }
-    static solveMergeOverlappingIntervals(ns, cct) {
-        const intervals = cct.data.slice();
+
+    static solveMergeOverlappingIntervals(ns: NS, cct: CCT) {
+        function convert2DArrayToString(arr: number[][]): string {
+            const components: string[] = [];
+            arr.forEach((e: number[]) => {
+                let s: string = e.toString();
+                s = ["[", s, "]"].join("");
+                components.push(s);
+            });
+
+            return components.join(",").replace(/\s/g, "");
+        }
+
+        const intervals: number[][] = cct.data.slice();
         intervals.sort((a, b) => {
             return a[0] - b[0];
         });
 
-        const result = [];
-        let start = intervals[0][0];
-        let end = intervals[0][1];
+        const result: number[][] = [];
+        let start: number = intervals[0][0];
+        let end: number = intervals[0][1];
         for (const interval of intervals) {
             if (interval[0] <= end) {
                 end = Math.max(end, interval[1]);
@@ -137,10 +158,11 @@ class CCT {
         }
         result.push([start, end]);
 
-        answerCCT(ns, cct, result);
+        answerCCT(ns, cct, [convert2DArrayToString(result)]);
     }
-    static solveGenerateIPAddresses(ns, cct) {
-        function validate(str) {
+
+    static solveGenerateIPAddresses(ns: NS, cct: CCT) {
+        function validate(str: string) {
             if (str === "0") return true;
             if (str.length > 1 && str[0] === "0") return false;
             if (str.length > 3) return false;
@@ -177,7 +199,8 @@ class CCT {
 
         answerCCT(ns, cct, results);
     }
-    static solveAlgorithmicStockTraderI(ns, cct) {
+
+    static solveAlgorithmicStockTraderI(ns: NS, cct: CCT) {
         let maxCur = 0;
         let maxSoFar = 0;
         for (let i = 1; i < cct.data.length; ++i) {
@@ -187,7 +210,8 @@ class CCT {
 
         answerCCT(ns, cct, maxSoFar);
     }
-    static solveAlgorithmicStockTraderII(ns, cct) {
+
+    static solveAlgorithmicStockTraderII(ns: NS, cct: CCT) {
         let profit = 0;
         for (let p = 1; p < cct.data.length; ++p) {
             profit += Math.max(cct.data[p] - cct.data[p - 1], 0);
@@ -195,7 +219,8 @@ class CCT {
 
         answerCCT(ns, cct, profit);
     }
-    static solveAlgorithmicStockTraderIII(ns, cct) {
+
+    static solveAlgorithmicStockTraderIII(ns: NS, cct: CCT) {
         let hold1 = Number.MIN_SAFE_INTEGER;
         let hold2 = Number.MIN_SAFE_INTEGER;
         let release1 = 0;
@@ -209,13 +234,14 @@ class CCT {
 
         answerCCT(ns, cct, release2);
     }
-    static solveAlgorithmicStockTraderIV(ns, cct) {
-        const k = cct.data[0];
-        const prices = cct.data[1];
+
+    static solveAlgorithmicStockTraderIV(ns: NS, cct: CCT) {
+        const k: number = cct.data[0];
+        const prices: number[] = cct.data[1];
 
         const len = prices.length;
         if (len < 2) {
-            return parseInt(ans) === 0;
+            answerCCT(ns, cct, 0);
         }
         if (k > len / 2) {
             let res = 0;
@@ -223,11 +249,11 @@ class CCT {
                 res += Math.max(prices[i] - prices[i - 1], 0);
             }
 
-            return parseInt(ans) === res;
+            answerCCT(ns, cct, res);
         }
 
-        const hold = [];
-        const rele = [];
+        const hold: number[] = [];
+        const rele: number[] = [];
         hold.length = k + 1;
         rele.length = k + 1;
         for (let i = 0; i <= k; ++i) {
@@ -235,7 +261,7 @@ class CCT {
             rele[i] = 0;
         }
 
-        let cur;
+        let cur: number;
         for (let i = 0; i < len; ++i) {
             cur = prices[i];
             for (let j = k; j > 0; --j) {
@@ -246,23 +272,20 @@ class CCT {
 
         answerCCT(ns, cct, rele[k]);
     }
-    static solveMinimumPathSuminaTriangle(ns, cct) {
-        function trav(tree, paths = [], tally = 0, level = 0, idx = 0) {
-            const newTally = tally + tree[level][idx];
 
-            if (level === tree.length - 1) {
-                paths.push(newTally);
-            } else {
-                trav(tree, paths, newTally, level + 1, idx);
-                trav(tree, paths, newTally, level + 1, idx + 1);
+    static solveMinimumPathSuminaTriangle(ns: NS, cct: CCT) {
+        const n: number = cct.data.length;
+        const dp: number[] = cct.data[n - 1].slice();
+        for (let i = n - 2; i > -1; --i) {
+            for (let j = 0; j < cct.data[i].length; ++j) {
+                dp[j] = Math.min(dp[j], dp[j + 1]) + cct.data[i][j];
             }
-
-            return paths;
         }
 
-        answerCCT(ns, cct, trav(cct.data).sort((a, b) => a - b)[0]);
+        answerCCT(ns, cct, dp[0]);
     }
-    static solveUniquePathsinaGridI(ns, cct) {
+
+    static solveUniquePathsinaGridI(ns: NS, cct: CCT) {
         const n = cct.data[0]; // Number of rows
         const m = cct.data[1]; // Number of columns
         const currentRow = [];
@@ -279,7 +302,8 @@ class CCT {
 
         answerCCT(ns, cct, currentRow[n - 1]);
     }
-    static solveUniquePathsinaGridII(ns, cct) {
+
+    static solveUniquePathsinaGridII(ns: NS, cct: CCT) {
         const obstacleGrid = [];
         obstacleGrid.length = cct.data.length;
         for (let i = 0; i < obstacleGrid.length; ++i) {
@@ -300,10 +324,11 @@ class CCT {
 
         answerCCT(ns, cct, obstacleGrid[obstacleGrid.length - 1][obstacleGrid[0].length - 1]);
     }
-    static solveSanitizeParenthesesinExpression(ns, cct) {
+
+    static solveSanitizeParenthesesinExpression(ns: NS, cct: CCT) {
         let left = 0;
         let right = 0;
-        const res = [];
+        const res: string[] = [];
 
         for (let i = 0; i < cct.data.length; ++i) {
             if (cct.data[i] === "(") {
@@ -313,7 +338,15 @@ class CCT {
             }
         }
 
-        function dfs(pair, index, left, right, s, solution, res) {
+        function dfs(
+            pair: number,
+            index: number,
+            left: number,
+            right: number,
+            s: string,
+            solution: string,
+            res: string[]
+        ): void {
             if (s.length === index) {
                 if (left === 0 && right === 0 && pair === 0) {
                     for (let i = 0; i < res.length; i++) {
@@ -343,11 +376,20 @@ class CCT {
 
         answerCCT(ns, cct, res);
     }
-    static solveFindAllValidMathExpressions(ns, cct) {
-        const num = cct.data[0];
-        const target = cct.data[1];
 
-        function helper(res, path, num, target, pos, evaluated, multed) {
+    static solveFindAllValidMathExpressions(ns: NS, cct: CCT) {
+        const num: string = cct.data[0];
+        const target: number = cct.data[1];
+
+        function helper(
+            res: string[],
+            path: string,
+            num: string,
+            target: number,
+            pos: number,
+            evaluated: number,
+            multed: number
+        ): void {
             if (pos === num.length) {
                 if (target === evaluated) {
                     res.push(path);
@@ -371,12 +413,13 @@ class CCT {
             }
         }
 
-        const result = [];
+        const result: string[] = [];
         helper(result, "", num, target, 0, 0, 0);
 
         answerCCT(ns, cct, result);
     }
-    static solveFindLargestPrimeFactor(ns, cct) {
+
+    static solveFindLargestPrimeFactor(ns: NS, cct: CCT) {
         let fac = 2;
         let n = cct.data;
         while (n > (fac - 1) * (fac - 1)) {
@@ -401,8 +444,6 @@ export async function main(ns: NS): Promise<void> {
 
             ccts.push(new CCT(ns, hostname, ls[0]));
         }
-
-        sprintf("found %d ccts", ccts.length);
 
         for (const cct of ccts) {
             cct.solve(ns);

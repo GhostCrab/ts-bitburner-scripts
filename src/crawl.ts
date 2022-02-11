@@ -1,5 +1,5 @@
 import { NS } from "@ns";
-import { allHosts, softenServer } from "bbutil";
+import { allHosts, softenServer } from "lib/util";
 
 function listServers(ns: NS, hostnames: string[]) {
     const hackableHosts = hostnames.sort(
