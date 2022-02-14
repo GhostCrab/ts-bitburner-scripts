@@ -34,6 +34,10 @@ export async function main(ns: NS): Promise<void> {
             );
         }
 
+        if (info.args.length > 0) {
+            incomeStr += ns.sprintf(" %s", info.args)
+        }
+
         ns.tprintf(
             `  %6d %-${maxScriptFileLength}s %7.2fGB%s`,
             pi.pid,

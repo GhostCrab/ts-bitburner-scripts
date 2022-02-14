@@ -22,25 +22,39 @@ export async function main(ns: NS): Promise<void> {
 
         for (const member of members) {
             const ascmem = ns.gang.getAscensionResult(member.name);
+            let hack1str = "--";
+            let hack2str = "--";
+            let cha1str = "--";
+            let cha2str = "--";
+
+            if (ascmem?.hack) {
+                hack1str = ns.nFormat(ascmem.hack * member.hack_asc_mult, "0.0");
+                hack2str = ns.nFormat(ascmem.hack, "0.0");
+            }
+
+            if (ascmem?.cha) {
+                cha1str = ns.nFormat(ascmem.cha * member.cha_asc_mult, "0.0");
+                cha2str = ns.nFormat(ascmem.cha, "0.0");
+            }
+
             llog(
                 ns,
                 "%3s:  Hacking: %7s  %5s => %5s (%s)",
                 member.name,
-				ns.nFormat(member.hack, "0,0"),
+                ns.nFormat(member.hack, "0,0"),
                 ns.nFormat(member.hack_asc_mult, "(0.0)"),
-                ns.nFormat(ascmem?.hack * member.hack_asc_mult, "0.0"),
-				ns.nFormat(ascmem?.hack, "0.0")
+                hack1str,
+                hack2str
             );
 
             llog(
                 ns,
                 "     Charisma: %7s  %5s => %5s (%s)",
-				ns.nFormat(member.cha, "0,0"),
+                ns.nFormat(member.cha, "0,0"),
                 ns.nFormat(member.cha_asc_mult, "(0.0)"),
-                ns.nFormat(ascmem?.cha * member.cha_asc_mult, "0.0"),
-				ns.nFormat(ascmem?.cha, "0.0")
+                cha1str,
+                cha2str
             );
-
 
             if (ascmem !== undefined && (ascmem.hack > 2 || ascmem.cha > 2)) {
                 ns.print(

@@ -49,6 +49,7 @@
     - karma
     - bought servers/sizes
     - home server size
+[ ] reset script that checks if things can be done before a reset
 
 
 

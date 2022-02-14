@@ -170,7 +170,7 @@ class Host {
 
         // if this host is home, reserve 64GB of ram for other stuff
         if (this.hostname === "home") {
-            const homeram = ns.getServerMaxRam(this.hostname) - 64;
+            const homeram = ns.getServerMaxRam(this.hostname) - 1024 - 64;
             this.maxThreads = Math.max(0, Math.floor(homeram / this.threadSize));
         }
 
@@ -884,6 +884,11 @@ export class SmartHackEnv {
                 if (simTime + this.cycleBatchTime > time || !result) break;
 
                 if (this.primaryStats.primaryThreadsTotal === 0) simState = 1;
+                this.simTarget.moneyAvailable *= ns.formulas.hacking.growPercent(this.simTarget, this.primaryStats.primaryGrowThreads, this.simPlayer)
+                this.simTarget.moneyAvailable = Math.min(this.simTarget.moneyAvailable, this.simTarget.moneyMax)
+                this.simTarget.hackDifficulty += ns.growthAnalyzeSecurity(this.primaryStats.primaryGrowThreads);
+                this.simTarget.hackDifficulty -= ns.weakenAnalyze(this.primaryStats.primaryWeakenThreads);
+                this.simTarget.hackDifficulty = Math.max(this.simTarget.minDifficulty, this.simTarget.hackDifficulty)
 
                 simIncome += this.hackTotal * (this.cycleTotal - 1);
                 simTime += this.cycleBatchTime;
@@ -900,8 +905,8 @@ export class SmartHackEnv {
 
         this.simEnabled = false;
 
-        if (simTime === 0) {
-            ns.tprintf("%s - %s", this.targetname, stFormat(ns, this.cycleBatchTime));
+        if (simIncome === 0) {
+            ns.tprintf("%s - %s (%s / %s)", this.targetname, stFormat(ns, this.cycleBatchTime), this.simTarget.hackDifficulty, this.simTarget.minDifficulty);
             return 0;
         }
 

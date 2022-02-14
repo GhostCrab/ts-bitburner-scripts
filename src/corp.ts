@@ -10,11 +10,21 @@ export async function main(ns: NS): Promise<void> {
     const tbDivName = "Tobacco";
     const tbRDCity = "Aevum";
 
-    try {
-        ns.corporation.getCorporation();
-    } catch (e) {
-        llog(ns, "Created Corporation for $150b");
-        ns.corporation.createCorporation("Corporation", true);
+    let waitForBuy = true;
+    while (waitForBuy) {
+        try {
+            ns.corporation.getCorporation();
+            waitForBuy = false;
+        } catch (e) {
+            const bought = ns.corporation.createCorporation("Corporation", true);
+            if (bought) {
+                llog(ns, "Created Corporation for $150b");
+                waitForBuy = false;
+            } else {
+                llog(ns, "Waiting to buy Corporation for $150b");
+                await ns.sleep(1000);
+            }
+        }
     }
 
     // open the Agriculture division
@@ -140,35 +150,56 @@ export async function main(ns: NS): Promise<void> {
 
     ns.corporation.setSmartSupply(agDivName, primaryCity, true);
 
+    let invState: "growing" | "selling" = "growing"; // |
+
     // Attempt to get first round of funding
-    while (ns.corporation.getInvestmentOffer().round < 2) {
+    if (ns.corporation.getInvestmentOffer().round < 2) {
         llog(ns, "Investment round 1: waiting for %s %s warehouse to fill", agDivName, primaryCity);
 
-        // Sell plants but not food (food is more expensive per unit)
-        ns.corporation.sellMaterial(agDivName, primaryCity, "Food", "0", "0");
-        ns.corporation.sellMaterial(agDivName, primaryCity, "Plants", "MAX", "MP");
-
-        while (
-            ns.corporation.getWarehouse(agDivName, primaryCity).sizeUsed <
-            ns.corporation.getWarehouse(agDivName, primaryCity).size * 0.95
-        ) {
-            await ns.sleep(1000);
-        }
-
-        llog(
-            ns,
-            "Investment round 1: %s %s warehouse is full, initiating bulk sell-off to woo investors",
-            agDivName,
-            primaryCity
-        );
-
-        ns.corporation.sellMaterial(agDivName, primaryCity, "Food", "MAX", "MP*1");
-        ns.corporation.sellMaterial(agDivName, primaryCity, "Plants", "MAX", "MP*1");
-
         let tookOffer = false;
-        let bestOffer = ns.corporation.getInvestmentOffer();
-        while (ns.corporation.getWarehouse(agDivName, primaryCity).sizeUsed > 151) {
+        while (!tookOffer) {
+            if (invState === "growing") {
+                if (
+                    ns.corporation.getWarehouse(agDivName, primaryCity).sizeUsed >
+                    ns.corporation.getWarehouse(agDivName, primaryCity).size * 0.95
+                ) {
+                    llog(
+                        ns,
+                        "Investment round 1: %s %s warehouse is full, initiating bulk sell-off to woo investors",
+                        agDivName,
+                        primaryCity
+                    );
+
+                    ns.corporation.sellMaterial(agDivName, primaryCity, "Food", "MAX", "MP*1");
+                    ns.corporation.sellMaterial(agDivName, primaryCity, "Plants", "MAX", "MP*1");
+                    invState = "selling";
+                } else {
+                    // Sell plants but not food (food is more expensive per unit)
+                    ns.corporation.sellMaterial(agDivName, primaryCity, "Food", "0", "0");
+                    ns.corporation.sellMaterial(agDivName, primaryCity, "Plants", "MAX", "MP");
+                }
+            } else {
+                if (ns.corporation.getWarehouse(agDivName, primaryCity).sizeUsed < 160) {
+                    // Sell plants but not food (food is more expensive per unit)
+                    ns.corporation.sellMaterial(agDivName, primaryCity, "Food", "0", "0");
+                    ns.corporation.sellMaterial(agDivName, primaryCity, "Plants", "MAX", "MP");
+
+                    llog(ns, "Investment round 1: waiting for %s %s warehouse to fill", agDivName, primaryCity);
+
+                    invState = "growing";
+                } else {
+                    ns.corporation.sellMaterial(agDivName, primaryCity, "Food", "MAX", "MP*1");
+                    ns.corporation.sellMaterial(agDivName, primaryCity, "Plants", "MAX", "MP*1");
+                }
+            }
+
             const offer = ns.corporation.getInvestmentOffer();
+            llog(
+                ns,
+                "Offer: %s %s",
+                ns.nFormat(offer.funds, "(0.000a)"),
+                ns.nFormat(ns.corporation.getCorporation().revenue, "(0.000a)")
+            );
 
             // only take offers over $335b
             if (offer.funds > 335000000000) {
@@ -182,21 +213,7 @@ export async function main(ns: NS): Promise<void> {
                 tookOffer = true;
                 break;
             }
-
-            if (offer.funds > bestOffer.funds) {
-                bestOffer = offer;
-            }
-
-            await ns.sleep(100);
-        }
-
-        if (!tookOffer) {
-            llog(
-                ns,
-                "Investment round 1: Failed to generate an offer over $335b (best: %s for %d%%)",
-                ns.nFormat(bestOffer.funds, "(0.000a)"),
-                (bestOffer.shares / 1000000000) * 100
-            );
+            await ns.sleep(500);
         }
     }
 
@@ -446,43 +463,56 @@ export async function main(ns: NS): Promise<void> {
         }
     }
 
-    // Attempt to get second round of funding
-    while (ns.corporation.getInvestmentOffer().round < 3) {
-        llog(ns, "Investment round 2: waiting for %s warehouses to fill", agDivName);
+    invState = "growing"; // |
 
-        // Sell plants but not food (food is more expensive per unit)
-        for (const city of ns.corporation.getDivision(agDivName).cities) {
-            ns.corporation.sellMaterial(agDivName, city, "Food", "0", "0");
-            ns.corporation.sellMaterial(agDivName, city, "Plants", "MAX", "MP");
-        }
+    // Attempt to get first round of funding
+    if (ns.corporation.getInvestmentOffer().round < 3) {
+        llog(ns, "Investment round 1: waiting for %s %s warehouse to fill", agDivName, primaryCity);
 
-        while (true) {
-            let doBreak = true;
-            for (const city of ns.corporation.getDivision(agDivName).cities) {
+        let tookOffer = false;
+        while (!tookOffer) {
+            if (invState === "growing") {
                 if (
-                    ns.corporation.getWarehouse(agDivName, city).sizeUsed <
-                    ns.corporation.getWarehouse(agDivName, city).size * 0.95
+                    ns.corporation.getWarehouse(agDivName, primaryCity).sizeUsed >
+                    ns.corporation.getWarehouse(agDivName, primaryCity).size * 0.95
                 ) {
-                    doBreak = false;
-                    break;
+                    llog(
+                        ns,
+                        "Investment round 2: %s %s warehouse is full, initiating bulk sell-off to woo investors",
+                        agDivName,
+                        primaryCity
+                    );
+
+                    ns.corporation.sellMaterial(agDivName, primaryCity, "Food", "MAX", "MP*1");
+                    ns.corporation.sellMaterial(agDivName, primaryCity, "Plants", "MAX", "MP*1");
+                    invState = "selling";
+                } else {
+                    // Sell plants but not food (food is more expensive per unit)
+                    ns.corporation.sellMaterial(agDivName, primaryCity, "Food", "0", "0");
+                    ns.corporation.sellMaterial(agDivName, primaryCity, "Plants", "MAX", "MP");
+                }
+            } else {
+                if (ns.corporation.getWarehouse(agDivName, primaryCity).sizeUsed < 1300) {
+                    // Sell plants but not food (food is more expensive per unit)
+                    ns.corporation.sellMaterial(agDivName, primaryCity, "Food", "0", "0");
+                    ns.corporation.sellMaterial(agDivName, primaryCity, "Plants", "MAX", "MP");
+
+                    llog(ns, "Investment round 2: waiting for %s %s warehouse to fill", agDivName, primaryCity);
+
+                    invState = "growing";
+                } else {
+                    ns.corporation.sellMaterial(agDivName, primaryCity, "Food", "MAX", "MP*1");
+                    ns.corporation.sellMaterial(agDivName, primaryCity, "Plants", "MAX", "MP*1");
                 }
             }
 
-            if (doBreak) break;
-            await ns.sleep(1000);
-        }
-
-        llog(ns, "Investment round 2: %s warehouses are full, initiating bulk sell-off to woo investors", agDivName);
-
-        for (const city of ns.corporation.getDivision(agDivName).cities) {
-            ns.corporation.sellMaterial(agDivName, city, "Food", "MAX", "MP*0.9");
-            ns.corporation.sellMaterial(agDivName, city, "Plants", "MAX", "MP*0.9");
-        }
-
-        let tookOffer = false;
-        let bestOffer = ns.corporation.getInvestmentOffer();
-        while (ns.corporation.getWarehouse(agDivName, primaryCity).sizeUsed > 1250) {
             const offer = ns.corporation.getInvestmentOffer();
+            llog(
+                ns,
+                "Offer: %s %s",
+                ns.nFormat(offer.funds, "(0.000a)"),
+                ns.nFormat(ns.corporation.getCorporation().revenue, "(0.000a)")
+            );
 
             //only take offers over $10t
             if (offer.funds > 10000000000000) {
@@ -496,21 +526,7 @@ export async function main(ns: NS): Promise<void> {
                 tookOffer = true;
                 break;
             }
-
-            if (offer.funds > bestOffer.funds) {
-                bestOffer = offer;
-            }
-
-            await ns.sleep(100);
-        }
-
-        if (!tookOffer) {
-            llog(
-                ns,
-                "Investment round 2: Failed to generate an offer over $10t (best: %s for %d%%)",
-                ns.nFormat(bestOffer.funds, "(0.000a)"),
-                (bestOffer.shares / 1000000000) * 100
-            );
+            await ns.sleep(500);
         }
     }
 
@@ -776,7 +792,7 @@ export async function main(ns: NS): Promise<void> {
 
     let doUpdate = false;
     let didUpdate = false;
-    const productTracker: Record<string, { state: string; mult: number; min: number; max: number}> = {};
+    const productTracker: Record<string, { state: string; mult: number; min: number; max: number }> = {};
 
     // initialize product tracker
     ns.corporation
@@ -878,8 +894,8 @@ export async function main(ns: NS): Promise<void> {
                 let mpMult = Number(product.sCost.toString().slice(3));
                 let reduceMult = false;
                 let increaseMult = 0;
-                for (const [qty, prod, sell] of Object.values(product.cityData)) {
-                    const prodDeficit = prod - sell;
+                for (const [qty, prod, sel] of Object.values(product.cityData)) {
+                    const prodDeficit = prod - sel;
                     if (qty > prod * 20 && prodDeficit > 0) {
                         reduceMult = true;
                         break;
@@ -918,20 +934,7 @@ export async function main(ns: NS): Promise<void> {
                 }
             }
 
-            ////////////////////////////////////////
-            // look for optimal MP multiplier
-            // search state uses binary search to find equilibrium
-            // hold state uses small increments up or down to hold diff between -1 and 0
-            //
-            // Hold Mode:
-            // prod = production of the highest producing city
-            // if all diffs are <= 0 and all qty are < prod*10, start increasing
-            // if any diffs are > 0 start decreasing
-            // if all diffs are <= 0 and all qty are < prod*20, hold
-            //
             // * start multiplier for new product at the same multiplier for the latest product
-            //
-            // after research is > 10k, wait for the latest product to finish, find optimal MPMult for that product and get 3rd round of funding
             //
             // after 3rd round of funding, go public with 0 shares, set dividenend to 5%
 
@@ -1089,11 +1092,11 @@ export async function main(ns: NS): Promise<void> {
                 "Utilities",
                 "Pharmaceutical",
                 "Energy",
-                "Mining",
-                "Computer",
-                "RealEstate",
-                "Healthcare",
-                "Robotics",
+                // "Mining",
+                // "Computer",
+                // "RealEstate",
+                // "Healthcare",
+                // "Robotics",
             ];
             for (const division of divisions) {
                 if (
@@ -1107,12 +1110,12 @@ export async function main(ns: NS): Promise<void> {
                 }
             }
 
-            // If all divisions have been built and a 3rd round investment offer is made for > $1q, accept
+            // If all divisions have been built and a 3rd round investment offer is made for > $1.5q, accept
             const offer = ns.corporation.getInvestmentOffer();
             if (
                 ns.corporation.getCorporation().divisions.length === 14 &&
                 offer.round === 3 &&
-                offer.funds > 1000000000000000
+                offer.funds > 1500000000000000
             ) {
                 ns.corporation.acceptInvestmentOffer();
                 llog(

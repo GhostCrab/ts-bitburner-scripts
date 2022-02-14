@@ -7,13 +7,13 @@ async function calcIncome(ns: NS, target: string, hosts: string[], simMinutes = 
 }
 
 type targetIncome = {
-	target: string;
-	income: number;
-}
+    target: string;
+    income: number;
+};
 
 export async function main(ns: NS): Promise<void> {
     cleanLogs(ns);
-	doBuyAndSoftenAll(ns);
+    doBuyAndSoftenAll(ns);
 
     const allHostnames = allHosts(ns);
     const executableHosts = allHostnames
@@ -23,12 +23,11 @@ export async function main(ns: NS): Promise<void> {
 
     let orderedTargetArr: targetIncome[] = [];
     for (const target of targetArr) {
-		let minutes = 2;
-		if (ns.args[0] && !isNaN(Number(ns.args[0])))
-			minutes = Number(ns.args[0])
+        let minutes = 2;
+        if (ns.args[0] && !isNaN(Number(ns.args[0]))) minutes = Number(ns.args[0]);
 
         const income = await calcIncome(ns, target, executableHosts, minutes);
-        orderedTargetArr.push({target: target, income: income});
+        orderedTargetArr.push({ target: target, income: income });
     }
 
     orderedTargetArr = orderedTargetArr.sort((a, b) => b.income - a.income);
@@ -42,7 +41,7 @@ export async function main(ns: NS): Promise<void> {
     }
 
     const env = new SmartHackEnv(ns, orderedTargetArr[0].target, executableHosts);
-    //const env = new SmartHackEnv(ns, "ecorp", executableHosts);
+    //const env = new SmartHackEnv(ns, orderedTargetArr[0].target, ["pserv-1"]);
     await env.init(ns);
     while (await env.refresh(ns));
 }

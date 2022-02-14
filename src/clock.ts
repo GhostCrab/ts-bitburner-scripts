@@ -188,6 +188,7 @@ export async function main(ns: NS): Promise<void> {
         const [hackProgressEl1, hackProgressEl2] = addProgress();
 
         addBottomLine();
+        
         const hacknetProdEl = addSingle();
         const hacknetTargetEl1 = addSingle();
         const hacknetTargetEl2 = addSingle();

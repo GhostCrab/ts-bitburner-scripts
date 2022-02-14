@@ -9,7 +9,7 @@ export async function main(ns: NS): Promise<void> {
         ns.tprintf("ERROR: Server Doesn't Exist: %s", ns.args[0]);
         return;
     }
-    const targetServer = ns.getServer();
+    const targetServer = ns.getServer(ns.args[0].toString());
     const availableFunds = targetServer.moneyAvailable <= 1 ? 1 : targetServer.moneyAvailable;
     const growthRequired = targetServer.moneyMax / availableFunds;
     let growThreadsNeeded = 0;
