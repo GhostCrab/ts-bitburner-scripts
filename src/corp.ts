@@ -3,6 +3,62 @@ import { cleanLogs, llog } from "lib/util";
 
 const CITIES = ["Aevum", "Chongqing", "Sector-12", "New Tokyo", "Ishima", "Volhaven"];
 
+function buyOneTimeUpgrades(ns: NS, _upgrades: string | string[]) {
+    let upgrades: string[];
+    if (typeof _upgrades === "string") {
+        upgrades = [_upgrades];
+    } else {
+        upgrades = _upgrades;
+    }
+
+    for (const upgrade of upgrades) {
+        if (!ns.corporation.hasUnlockUpgrade(upgrade)) {
+            const upgradeCost = ns.corporation.getUnlockUpgradeCost(upgrade);
+            const corpFunds = ns.corporation.getCorporation().funds;
+
+            if (corpFunds < upgradeCost) {
+                llog(
+                    ns,
+                    "WARNING: Insufficient funds to purchase %s %s < %s",
+                    upgrade,
+                    ns.nFormat(corpFunds, "($0.000a)"),
+                    ns.nFormat(upgradeCost, "($0.000a)")
+                );
+            } else {
+                llog(ns, "Purchasing %s upgrade for %s", upgrade, ns.nFormat(upgradeCost, "($0.000a)"));
+                ns.corporation.unlockUpgrade(upgrade);
+            }
+        }
+    }
+}
+
+function buyLeveledUpgrades(ns: NS, _upgrades: string | string[], _amount: number, threshold = 1) {
+    let upgrades: string[];
+    if (typeof _upgrades === "string") {
+        upgrades = [_upgrades];
+    } else {
+        upgrades = _upgrades;
+    }
+    const amount = _amount <= 0 ? Number.MAX_SAFE_INTEGER : _amount;
+
+    for (const upgrade of upgrades) {
+        let upgradeCount = 0;
+        let upgradeCost = 0;
+        while (
+            ns.corporation.getUpgradeLevelCost(upgrade) < ns.corporation.getCorporation().funds * threshold &&
+            ns.corporation.getUpgradeLevel(upgrade) < amount
+        ) {
+            upgradeCost += ns.corporation.getUpgradeLevelCost(upgrade);
+            upgradeCount++;
+            ns.corporation.levelUpgrade(upgrade);
+        }
+
+        if (upgradeCount > 0) {
+            llog(ns, "Purchased %dx of %s for %s", upgradeCount, upgrade, ns.nFormat(upgradeCost, "($0.000a)"));
+        }
+    }
+}
+
 export async function main(ns: NS): Promise<void> {
     cleanLogs(ns);
 
@@ -29,167 +85,185 @@ export async function main(ns: NS): Promise<void> {
 
     // open the Agriculture division
     if (ns.corporation.getCorporation().divisions.find((div) => div.type === agDivName) === undefined) {
+        ns.tprintf("WARNING: Dont Forget to buy a single adVert and assign jobs in all cities");
+
         const divCost = ns.corporation.getExpandIndustryCost(agDivName);
 
         llog(ns, "Starting %s division for %s", agDivName, ns.nFormat(divCost, "($0.000a)"));
 
         ns.corporation.expandIndustry(agDivName, agDivName);
-    }
 
-    // buy one time upgrades Smart Supply and Warehouse API
-    for (const upgrade of ["Smart Supply", "Warehouse API"]) {
-        if (!ns.corporation.hasUnlockUpgrade(upgrade)) {
-            const upgradeCost = ns.corporation.getUnlockUpgradeCost(upgrade);
-            const corpFunds = ns.corporation.getCorporation().funds;
+        // buy one time upgrades Smart Supply
+        buyOneTimeUpgrades(ns, ["Smart Supply", "Warehouse API"]);
 
-            if (corpFunds < upgradeCost) {
-                llog(
-                    ns,
-                    "WARNING: Insufficient funds to purchase %s %s < %s",
-                    upgrade,
-                    ns.nFormat(corpFunds, "($0.000a)"),
-                    ns.nFormat(upgradeCost, "($0.000a)")
-                );
-            } else {
-                llog(ns, "Purchasing %s upgrade for %s", upgrade, ns.nFormat(upgradeCost, "($0.000a)"));
-                ns.corporation.unlockUpgrade(upgrade);
-            }
-        }
-    }
-
-    // buy levelable upgrades FocusWires, Neural Accelerators, Speech Processor Implants,
-    // Nuoptimal Nootropic Injector Implants, and Smart Factories
-    let leveledUpgrades = [
-        "FocusWires",
-        "Neural Accelerators",
-        "Speech Processor Implants",
-        "Nuoptimal Nootropic Injector Implants",
-        "Smart Factories",
-    ];
-    for (const upgrade of leveledUpgrades) {
-        while (ns.corporation.getUpgradeLevel(upgrade) < 2) {
-            const upgradeCost = ns.corporation.getUpgradeLevelCost(upgrade);
-            const corpFunds = ns.corporation.getCorporation().funds;
-
-            if (corpFunds < upgradeCost) {
-                llog(
-                    ns,
-                    "WARNING: Insufficient funds to purchase %s %s < %s",
-                    upgrade,
-                    ns.nFormat(corpFunds, "($0.000a)"),
-                    ns.nFormat(upgradeCost, "($0.000a)")
-                );
-                break;
-            } else {
-                llog(ns, "Purchasing %s upgrade for %s", upgrade, ns.nFormat(upgradeCost, "($0.000a)"));
-                ns.corporation.levelUpgrade(upgrade);
-            }
-        }
-    }
-
-    // Check primary city's warehouse and upgrade to 500
-    const primaryCity = ns.corporation.getDivision(agDivName).cities[0];
-    if (!ns.corporation.hasWarehouse(agDivName, primaryCity)) {
-        llog(ns, "ERROR: %s primary city %s does not have a warehouse", agDivName, primaryCity);
-        return;
-    }
-
-    while (ns.corporation.getWarehouse(agDivName, primaryCity).size < 500) {
-        const upgradeCost = ns.corporation.getUpgradeWarehouseCost(agDivName, primaryCity);
-        const corpFunds = ns.corporation.getCorporation().funds;
-        const startSize = ns.corporation.getWarehouse(agDivName, primaryCity).size;
-
-        if (corpFunds < upgradeCost) {
-            llog(
-                ns,
-                "WARNING: Insufficient funds to purchase a warehouse upgrade %s < %s",
-                ns.nFormat(corpFunds, "($0.000a)"),
-                ns.nFormat(upgradeCost, "($0.000a)")
-            );
-        } else {
-            ns.corporation.upgradeWarehouse(agDivName, primaryCity);
-            const endSize = ns.corporation.getWarehouse(agDivName, primaryCity).size;
-            llog(
-                ns,
-                "Upgraded %s %s's warehouse size from %s to %s for %s",
-                agDivName,
-                primaryCity,
-                ns.nFormat(startSize, "(0.000a)"),
-                ns.nFormat(endSize, "(0.000a)"),
-                ns.nFormat(upgradeCost, "($0.000a)")
-            );
-        }
-    }
-
-    if (ns.corporation.getWarehouse(agDivName, primaryCity).size < 500) {
-        llog(
+        // buy levelable upgrades FocusWires, Neural Accelerators, Speech Processor Implants,
+        // Nuoptimal Nootropic Injector Implants, and Smart Factories
+        buyLeveledUpgrades(
             ns,
-            "ERROR: %s primary city %s's warehouse is too small %d < 500",
-            agDivName,
-            primaryCity,
-            ns.corporation.getWarehouse(agDivName, primaryCity).size
+            [
+                "FocusWires",
+                "Neural Accelerators",
+                "Speech Processor Implants",
+                "Nuoptimal Nootropic Injector Implants",
+                "Smart Factories",
+            ],
+            2
         );
-
-        return;
     }
 
-    // buy production materials for primary city
-    if (ns.corporation.getMaterial(agDivName, primaryCity, "Real Estate").qty === 0) {
-        ns.corporation.buyMaterial(agDivName, primaryCity, "Hardware", 12.5);
-        ns.corporation.buyMaterial(agDivName, primaryCity, "AI Cores", 7.5);
-        ns.corporation.buyMaterial(agDivName, primaryCity, "Real Estate", 2700);
+    // Expand to additional cities
+    // for (const city of CITIES.filter((a) => !ns.corporation.getDivision(agDivName).cities.includes(a))) {
+    //     const expandCost = ns.corporation.getExpandCityCost();
+    //     const corpFunds = ns.corporation.getCorporation().funds;
 
-        while (ns.corporation.getMaterial(agDivName, primaryCity, "Real Estate").qty === 0) await ns.sleep(5);
+    //     if (corpFunds < expandCost) {
+    //         llog(
+    //             ns,
+    //             "ERROR: Insufficient funds to expand %s to %s %s < %s",
+    //             agDivName,
+    //             city,
+    //             ns.nFormat(corpFunds, "($0.000a)"),
+    //             ns.nFormat(expandCost, "($0.000a)")
+    //         );
 
-        llog(ns, "Purchased Round 1 of %s production materials in %s", agDivName, primaryCity);
+    //         return;
+    //     } else {
+    //         llog(ns, "Expanding %s to %s for %s", agDivName, city, ns.nFormat(expandCost, "($0.000a)"));
+    //         ns.corporation.expandCity(agDivName, city);
+    //     }
+    // }
 
-        ns.corporation.buyMaterial(agDivName, primaryCity, "Hardware", 0);
-        ns.corporation.buyMaterial(agDivName, primaryCity, "AI Cores", 0);
-        ns.corporation.buyMaterial(agDivName, primaryCity, "Real Estate", 0);
+    // Buy warehouses in all cities
+    for (const city of ns.corporation.getDivision(agDivName).cities) {
+        if (!ns.corporation.hasWarehouse(agDivName, city)) {
+            const warehouseCost = ns.corporation.getPurchaseWarehouseCost();
+            const corpFunds = ns.corporation.getCorporation().funds;
+
+            if (warehouseCost <= corpFunds) {
+                llog(
+                    ns,
+                    "Purchasing a %s warehouse in %s for %s",
+                    agDivName,
+                    city,
+                    ns.nFormat(warehouseCost, "($0.000a)")
+                );
+                ns.corporation.purchaseWarehouse(agDivName, city);
+            } else {
+                llog(
+                    ns,
+                    "Insufficient funds to purchase a %s warehouse in %s %s < %s",
+                    agDivName,
+                    city,
+                    ns.nFormat(corpFunds, "($0.000a)"),
+                    ns.nFormat(warehouseCost, "($0.000a)")
+                );
+                return;
+            }
+        }
+
+        // upgrade the size of the warehouses in all of the cities to 300
+        while (ns.corporation.getWarehouse(agDivName, city).size < 300) {
+            const upgradeCost = ns.corporation.getUpgradeWarehouseCost(agDivName, city);
+            const corpFunds = ns.corporation.getCorporation().funds;
+            const startSize = ns.corporation.getWarehouse(agDivName, city).size;
+
+            if (corpFunds < upgradeCost) {
+                llog(
+                    ns,
+                    "WARNING: Insufficient funds to purchase a warehouse upgrade %s < %s",
+                    ns.nFormat(corpFunds, "($0.000a)"),
+                    ns.nFormat(upgradeCost, "($0.000a)")
+                );
+            } else {
+                ns.corporation.upgradeWarehouse(agDivName, city);
+                const endSize = ns.corporation.getWarehouse(agDivName, city).size;
+                llog(
+                    ns,
+                    "Upgraded %s %s's warehouse size from %s to %s for %s",
+                    agDivName,
+                    city,
+                    ns.nFormat(startSize, "(0.000a)"),
+                    ns.nFormat(endSize, "(0.000a)"),
+                    ns.nFormat(upgradeCost, "($0.000a)")
+                );
+            }
+        }
+
+        ns.corporation.setSmartSupply(agDivName, city, true);
+        ns.corporation.sellMaterial(agDivName, city, "Food", "MAX", "MP");
+        ns.corporation.sellMaterial(agDivName, city, "Plants", "MAX", "MP");
     }
 
-    ns.corporation.setSmartSupply(agDivName, primaryCity, true);
+    // buy production materials for all cities
+    for (const city of ns.corporation.getDivision(agDivName).cities) {
+        if (ns.corporation.getMaterial(agDivName, city, "Real Estate").qty === 0) {
+            ns.corporation.buyMaterial(agDivName, city, "Hardware", 12.5);
+            ns.corporation.buyMaterial(agDivName, city, "AI Cores", 7.5);
+            ns.corporation.buyMaterial(agDivName, city, "Real Estate", 2700);
 
-    let invState: "growing" | "selling" = "growing"; // |
+            while (ns.corporation.getMaterial(agDivName, city, "Real Estate").qty === 0) await ns.sleep(5);
+
+            llog(ns, "Purchased Round 1 of %s production materials in %s", agDivName, city);
+
+            ns.corporation.buyMaterial(agDivName, city, "Hardware", 0);
+            ns.corporation.buyMaterial(agDivName, city, "AI Cores", 0);
+            ns.corporation.buyMaterial(agDivName, city, "Real Estate", 0);
+        }
+    }
+
+    let invState: "growing" | "selling" = "growing";
 
     // Attempt to get first round of funding
     if (ns.corporation.getInvestmentOffer().round < 2) {
-        llog(ns, "Investment round 1: waiting for %s %s warehouse to fill", agDivName, primaryCity);
+        llog(ns, "Investment round 1: waiting for %s warehouses to fill", agDivName);
 
         let tookOffer = false;
         while (!tookOffer) {
             if (invState === "growing") {
-                if (
-                    ns.corporation.getWarehouse(agDivName, primaryCity).sizeUsed >
-                    ns.corporation.getWarehouse(agDivName, primaryCity).size * 0.95
-                ) {
+                // growing, set all sale prices to food 0, plants max and wait until all warehouses are > 95% full
+                let countFullWarehouses = 0;
+                for (const city of ns.corporation.getDivision(agDivName).cities) {
+                    ns.corporation.sellMaterial(agDivName, city, "Food", "0", "0");
+                    ns.corporation.sellMaterial(agDivName, city, "Plants", "MAX", "MP");
+
+                    const warehouse = ns.corporation.getWarehouse(agDivName, city);
+                    if (warehouse.sizeUsed > warehouse.size * 0.95) countFullWarehouses++;
+                }
+
+                if (countFullWarehouses === ns.corporation.getDivision(agDivName).cities.length) {
+                    for (const city of ns.corporation.getDivision(agDivName).cities) {
+                        ns.corporation.sellMaterial(agDivName, city, "Food", "MAX", "MP*1");
+                        ns.corporation.sellMaterial(agDivName, city, "Plants", "MAX", "MP*1");
+                    }
+
                     llog(
                         ns,
-                        "Investment round 1: %s %s warehouse is full, initiating bulk sell-off to woo investors",
-                        agDivName,
-                        primaryCity
+                        "Investment round 1: %s warehouses are full, initiating bulk sell-off to woo investors",
+                        agDivName
                     );
 
-                    ns.corporation.sellMaterial(agDivName, primaryCity, "Food", "MAX", "MP*1");
-                    ns.corporation.sellMaterial(agDivName, primaryCity, "Plants", "MAX", "MP*1");
                     invState = "selling";
-                } else {
-                    // Sell plants but not food (food is more expensive per unit)
-                    ns.corporation.sellMaterial(agDivName, primaryCity, "Food", "0", "0");
-                    ns.corporation.sellMaterial(agDivName, primaryCity, "Plants", "MAX", "MP");
                 }
             } else {
-                if (ns.corporation.getWarehouse(agDivName, primaryCity).sizeUsed < 160) {
-                    // Sell plants but not food (food is more expensive per unit)
-                    ns.corporation.sellMaterial(agDivName, primaryCity, "Food", "0", "0");
-                    ns.corporation.sellMaterial(agDivName, primaryCity, "Plants", "MAX", "MP");
+                // selling - bulk sell everything at market price until all warehouses are empty
+                let countEmptyWarehouses = 0;
+                for (const city of ns.corporation.getDivision(agDivName).cities) {
+                    ns.corporation.sellMaterial(agDivName, city, "Food", "MAX", "MP*1");
+                    ns.corporation.sellMaterial(agDivName, city, "Plants", "MAX", "MP*1");
 
-                    llog(ns, "Investment round 1: waiting for %s %s warehouse to fill", agDivName, primaryCity);
+                    const warehouse = ns.corporation.getWarehouse(agDivName, city);
+                    if (warehouse.sizeUsed < 160) countEmptyWarehouses++;
+                }
+
+                if (countEmptyWarehouses === ns.corporation.getDivision(agDivName).cities.length) {
+                    for (const city of ns.corporation.getDivision(agDivName).cities) {
+                        ns.corporation.sellMaterial(agDivName, city, "Food", "0", "0");
+                        ns.corporation.sellMaterial(agDivName, city, "Plants", "MAX", "MP");
+                    }
+
+                    llog(ns, "Investment round 1: %s warehoses are empty, beginning stockpile", agDivName);
 
                     invState = "growing";
-                } else {
-                    ns.corporation.sellMaterial(agDivName, primaryCity, "Food", "MAX", "MP*1");
-                    ns.corporation.sellMaterial(agDivName, primaryCity, "Plants", "MAX", "MP*1");
                 }
             }
 
@@ -214,32 +288,6 @@ export async function main(ns: NS): Promise<void> {
                 break;
             }
             await ns.sleep(500);
-        }
-    }
-
-    // revert sale prices for now
-    ns.corporation.sellMaterial(agDivName, primaryCity, "Food", "MAX", "MP");
-    ns.corporation.sellMaterial(agDivName, primaryCity, "Plants", "MAX", "MP");
-
-    // buy one time upgrade Office API
-    for (const upgrade of ["Office API"]) {
-        if (!ns.corporation.hasUnlockUpgrade(upgrade)) {
-            const upgradeCost = ns.corporation.getUnlockUpgradeCost(upgrade);
-            const corpFunds = ns.corporation.getCorporation().funds;
-
-            if (corpFunds < upgradeCost) {
-                llog(
-                    ns,
-                    "ERROR: Insufficient funds to purchase %s %s < %s",
-                    upgrade,
-                    ns.nFormat(corpFunds, "($0.000a)"),
-                    ns.nFormat(upgradeCost, "($0.000a)")
-                );
-                return;
-            } else {
-                llog(ns, "Purchasing %s upgrade for %s", upgrade, ns.nFormat(upgradeCost, "($0.000a)"));
-                ns.corporation.unlockUpgrade(upgrade);
-            }
         }
     }
 
@@ -293,8 +341,8 @@ export async function main(ns: NS): Promise<void> {
             }
         }
 
-        // upgrade the size of the warehouses in all of the cities to 500
-        while (ns.corporation.getWarehouse(agDivName, city).size < 500) {
+        // upgrade the size of the warehouses in all of the cities to 300
+        while (ns.corporation.getWarehouse(agDivName, city).size < 300) {
             const upgradeCost = ns.corporation.getUpgradeWarehouseCost(agDivName, city);
             const corpFunds = ns.corporation.getCorporation().funds;
             const startSize = ns.corporation.getWarehouse(agDivName, city).size;
@@ -325,6 +373,32 @@ export async function main(ns: NS): Promise<void> {
         ns.corporation.sellMaterial(agDivName, city, "Food", "MAX", "MP");
         ns.corporation.sellMaterial(agDivName, city, "Plants", "MAX", "MP");
     }
+
+    // buy production materials for all cities
+    for (const city of ns.corporation.getDivision(agDivName).cities) {
+        if (ns.corporation.getMaterial(agDivName, city, "Real Estate").qty === 0) {
+            ns.corporation.buyMaterial(agDivName, city, "Hardware", 12.5);
+            ns.corporation.buyMaterial(agDivName, city, "AI Cores", 7.5);
+            ns.corporation.buyMaterial(agDivName, city, "Real Estate", 2700);
+
+            while (ns.corporation.getMaterial(agDivName, city, "Real Estate").qty === 0) await ns.sleep(5);
+
+            llog(ns, "Purchased Round 1 of %s production materials in %s", agDivName, city);
+
+            ns.corporation.buyMaterial(agDivName, city, "Hardware", 0);
+            ns.corporation.buyMaterial(agDivName, city, "AI Cores", 0);
+            ns.corporation.buyMaterial(agDivName, city, "Real Estate", 0);
+        }
+    }
+
+    // revert sale prices for now
+    for (const city of ns.corporation.getDivision(agDivName).cities) {
+        ns.corporation.sellMaterial(agDivName, city, "Food", "MAX", "MP");
+        ns.corporation.sellMaterial(agDivName, city, "Plants", "MAX", "MP");
+    }
+
+    // buy one time upgrade Office API
+    buyOneTimeUpgrades(ns, "Office API");
 
     // upgrade the office size in every city to 9 and assign jobs
     for (const city of ns.corporation.getDivision(agDivName).cities) {
@@ -374,47 +448,10 @@ export async function main(ns: NS): Promise<void> {
         await ns.corporation.setAutoJobAssignment(agDivName, city, "Research & Development", 2);
     }
 
-    // buy production materials for all cities
-    for (const city of ns.corporation.getDivision(agDivName).cities) {
-        if (ns.corporation.getMaterial(agDivName, city, "Real Estate").qty === 0) {
-            ns.corporation.buyMaterial(agDivName, city, "Hardware", 12.5);
-            ns.corporation.buyMaterial(agDivName, city, "AI Cores", 7.5);
-            ns.corporation.buyMaterial(agDivName, city, "Real Estate", 2700);
-
-            while (ns.corporation.getMaterial(agDivName, city, "Real Estate").qty === 0) await ns.sleep(5);
-
-            llog(ns, "Purchased Round 1 of %s production materials in %s", agDivName, city);
-
-            ns.corporation.buyMaterial(agDivName, city, "Hardware", 0);
-            ns.corporation.buyMaterial(agDivName, city, "AI Cores", 0);
-            ns.corporation.buyMaterial(agDivName, city, "Real Estate", 0);
-        }
-    }
-
     // Upgrade Smart Factories and Smart Storage
-    leveledUpgrades = ["Smart Factories", "Smart Storage"];
-    for (const upgrade of leveledUpgrades) {
-        while (ns.corporation.getUpgradeLevel(upgrade) < 10) {
-            const upgradeCost = ns.corporation.getUpgradeLevelCost(upgrade);
-            const corpFunds = ns.corporation.getCorporation().funds;
+    buyLeveledUpgrades(ns, ["Smart Factories", "Smart Storage"], 10);
 
-            if (corpFunds < upgradeCost) {
-                llog(
-                    ns,
-                    "WARNING: Insufficient funds to purchase %s %s < %s",
-                    upgrade,
-                    ns.nFormat(corpFunds, "($0.000a)"),
-                    ns.nFormat(upgradeCost, "($0.000a)")
-                );
-                break;
-            } else {
-                llog(ns, "Purchasing %s upgrade for %s", upgrade, ns.nFormat(upgradeCost, "($0.000a)"));
-                ns.corporation.levelUpgrade(upgrade);
-            }
-        }
-    }
-
-    // Increase Warehouse Sizes to 2k
+    // Increase Warehouse Sizes to 5k
     for (const city of ns.corporation.getDivision(agDivName).cities) {
         while (ns.corporation.getWarehouse(agDivName, city).size < 5000) {
             const upgradeCost = ns.corporation.getUpgradeWarehouseCost(agDivName, city);
@@ -463,48 +500,59 @@ export async function main(ns: NS): Promise<void> {
         }
     }
 
-	// buy adVert!!
-
-    invState = "growing"; // |
+    invState = "growing";
 
     // Attempt to get first round of funding
     if (ns.corporation.getInvestmentOffer().round < 3) {
-        llog(ns, "Investment round 1: waiting for %s %s warehouse to fill", agDivName, primaryCity);
+        llog(ns, "Investment round 2: waiting for %s warehouses to fill", agDivName);
 
         let tookOffer = false;
         while (!tookOffer) {
             if (invState === "growing") {
-                if (
-                    ns.corporation.getWarehouse(agDivName, primaryCity).sizeUsed >
-                    ns.corporation.getWarehouse(agDivName, primaryCity).size * 0.95
-                ) {
+                // growing, set all sale prices to food 0, plants max and wait until all warehouses are > 95% full
+                let countFullWarehouses = 0;
+                for (const city of ns.corporation.getDivision(agDivName).cities) {
+                    ns.corporation.sellMaterial(agDivName, city, "Food", "0", "0");
+                    ns.corporation.sellMaterial(agDivName, city, "Plants", "MAX", "MP");
+
+                    const warehouse = ns.corporation.getWarehouse(agDivName, city);
+                    if (warehouse.sizeUsed > warehouse.size * 0.95) countFullWarehouses++;
+                }
+
+                if (countFullWarehouses === ns.corporation.getDivision(agDivName).cities.length) {
+                    for (const city of ns.corporation.getDivision(agDivName).cities) {
+                        ns.corporation.sellMaterial(agDivName, city, "Food", "MAX", "MP*1");
+                        ns.corporation.sellMaterial(agDivName, city, "Plants", "MAX", "MP*1");
+                    }
+
                     llog(
                         ns,
-                        "Investment round 2: %s %s warehouse is full, initiating bulk sell-off to woo investors",
-                        agDivName,
-                        primaryCity
+                        "Investment round 2: %s warehouses are full, initiating bulk sell-off to woo investors",
+                        agDivName
                     );
 
-                    ns.corporation.sellMaterial(agDivName, primaryCity, "Food", "MAX", "MP*1");
-                    ns.corporation.sellMaterial(agDivName, primaryCity, "Plants", "MAX", "MP*1");
                     invState = "selling";
-                } else {
-                    // Sell plants but not food (food is more expensive per unit)
-                    ns.corporation.sellMaterial(agDivName, primaryCity, "Food", "0", "0");
-                    ns.corporation.sellMaterial(agDivName, primaryCity, "Plants", "MAX", "MP");
                 }
             } else {
-                if (ns.corporation.getWarehouse(agDivName, primaryCity).sizeUsed < 1300) {
-                    // Sell plants but not food (food is more expensive per unit)
-                    ns.corporation.sellMaterial(agDivName, primaryCity, "Food", "0", "0");
-                    ns.corporation.sellMaterial(agDivName, primaryCity, "Plants", "MAX", "MP");
+                // selling - bulk sell everything at market price until all warehouses are empty
+                let countEmptyWarehouses = 0;
+                for (const city of ns.corporation.getDivision(agDivName).cities) {
+                    ns.corporation.sellMaterial(agDivName, city, "Food", "MAX", "MP*0.9");
+                    ns.corporation.sellMaterial(agDivName, city, "Plants", "MAX", "MP*0.9");
 
-                    llog(ns, "Investment round 2: waiting for %s %s warehouse to fill", agDivName, primaryCity);
+                    const warehouse = ns.corporation.getWarehouse(agDivName, city);
+                    if (warehouse.sizeUsed < 1300) countEmptyWarehouses++;
+                }
+
+                if (countEmptyWarehouses === ns.corporation.getDivision(agDivName).cities.length) {
+                    for (const city of ns.corporation.getDivision(agDivName).cities) {
+                        ns.corporation.sellMaterial(agDivName, city, "Food", "0", "0");
+                        ns.corporation.sellMaterial(agDivName, city, "Plants", "MAX", "MP");
+                    }
+
+                    llog(ns, "Investment round 2: %s warehoses are empty, beginning stockpile", agDivName);
 
                     invState = "growing";
-                } else {
-                    ns.corporation.sellMaterial(agDivName, primaryCity, "Food", "MAX", "MP*1");
-                    ns.corporation.sellMaterial(agDivName, primaryCity, "Plants", "MAX", "MP*1");
                 }
             }
 
@@ -529,55 +577,6 @@ export async function main(ns: NS): Promise<void> {
                 break;
             }
             await ns.sleep(500);
-        }
-    }
-
-    // Increase Warehouse Sizes to 3.8k
-    for (const city of ns.corporation.getDivision(agDivName).cities) {
-        while (ns.corporation.getWarehouse(agDivName, city).size < 3800) {
-            const upgradeCost = ns.corporation.getUpgradeWarehouseCost(agDivName, city);
-            const corpFunds = ns.corporation.getCorporation().funds;
-            const startSize = ns.corporation.getWarehouse(agDivName, city).size;
-
-            if (corpFunds < upgradeCost) {
-                llog(
-                    ns,
-                    "WARNING: Insufficient funds to purchase a warehouse upgrade %s < %s",
-                    ns.nFormat(corpFunds, "($0.000a)"),
-                    ns.nFormat(upgradeCost, "($0.000a)")
-                );
-            } else {
-                ns.corporation.upgradeWarehouse(agDivName, city);
-                const endSize = ns.corporation.getWarehouse(agDivName, city).size;
-                llog(
-                    ns,
-                    "Upgraded %s %s's warehouse size from %s to %s for %s",
-                    agDivName,
-                    city,
-                    ns.nFormat(startSize, "(0.000a)"),
-                    ns.nFormat(endSize, "(0.000a)"),
-                    ns.nFormat(upgradeCost, "($0.000a)")
-                );
-            }
-        }
-    }
-
-    // buy third round production materials for all cities
-    for (const city of ns.corporation.getDivision(agDivName).cities) {
-        if (ns.corporation.getMaterial(agDivName, city, "Real Estate").qty < 230000) {
-            ns.corporation.buyMaterial(agDivName, city, "Hardware", 650);
-            ns.corporation.buyMaterial(agDivName, city, "Robots", 63);
-            ns.corporation.buyMaterial(agDivName, city, "AI Cores", 375);
-            ns.corporation.buyMaterial(agDivName, city, "Real Estate", 8400);
-
-            while (ns.corporation.getMaterial(agDivName, city, "Real Estate").qty < 230000) await ns.sleep(5);
-
-            llog(ns, "Purchased Round 3 of %s production materials in %s", agDivName, city);
-
-            ns.corporation.buyMaterial(agDivName, city, "Hardware", 0);
-            ns.corporation.buyMaterial(agDivName, city, "Robots", 0);
-            ns.corporation.buyMaterial(agDivName, city, "AI Cores", 0);
-            ns.corporation.buyMaterial(agDivName, city, "Real Estate", 0);
         }
     }
 
@@ -765,49 +764,14 @@ export async function main(ns: NS): Promise<void> {
         await ns.corporation.setAutoJobAssignment(tbDivName, tbRDCity, "Research & Development", 6);
     }
 
-    leveledUpgrades = [
-        "FocusWires",
-        "Neural Accelerators",
-        "Speech Processor Implants",
-        "Nuoptimal Nootropic Injector Implants",
-    ];
-    for (const upgrade of leveledUpgrades) {
-        while (ns.corporation.getUpgradeLevel(upgrade) < 20) {
-            const upgradeCost = ns.corporation.getUpgradeLevelCost(upgrade);
-            const corpFunds = ns.corporation.getCorporation().funds;
-
-            if (corpFunds < upgradeCost) {
-                llog(
-                    ns,
-                    "WARNING: Insufficient funds to purchase %s %s < %s",
-                    upgrade,
-                    ns.nFormat(corpFunds, "($0.000a)"),
-                    ns.nFormat(upgradeCost, "($0.000a)")
-                );
-                break;
-            } else {
-                llog(ns, "Purchasing %s upgrade for %s", upgrade, ns.nFormat(upgradeCost, "($0.000a)"));
-                ns.corporation.levelUpgrade(upgrade);
-            }
-        }
-    }
+    buyLeveledUpgrades(
+        ns,
+        ["FocusWires", "Neural Accelerators", "Speech Processor Implants", "Nuoptimal Nootropic Injector Implants"],
+        20
+    );
 
     let doUpdate = false;
     let didUpdate = false;
-    const productTracker: Record<string, { state: string; mult: number; min: number; max: number }> = {};
-
-    // initialize product tracker
-    ns.corporation
-        .getDivision(tbDivName)
-        .products.map((prodname) => ns.corporation.getProduct(tbDivName, prodname))
-        .forEach((product) => {
-            productTracker[product.name] = {
-                state: "HOLD", // ["HOLD", "SEARCH", "INC", "DEC"]
-                mult: Number(product.sCost.toString().slice(3)),
-                min: 0,
-                max: 0,
-            };
-        });
     while (true) {
         const state = ns.corporation.getCorporation().state;
 
@@ -864,13 +828,8 @@ export async function main(ns: NS): Promise<void> {
                 const investmentCash = ns.corporation.getCorporation().funds * 0.01;
 
                 let productName = "prod-0";
-                let newMult = 1;
                 if (products.length > 0) {
                     productName = "prod-" + (Number(products[products.length - 1].name.slice(5)) + 1).toString();
-                }
-
-                if (products.length > 1) {
-                    newMult = Number(products[products.length - 2].sCost.toString().slice(3));
                 }
 
                 llog(
@@ -882,7 +841,7 @@ export async function main(ns: NS): Promise<void> {
                 );
 
                 ns.corporation.makeProduct(tbDivName, tbRDCity, productName, investmentCash, investmentCash);
-                ns.corporation.sellProduct(tbDivName, tbRDCity, productName, "MAX", "MP*" + newMult.toString(), true);
+                ns.corporation.sellProduct(tbDivName, tbRDCity, productName, "MAX", "MP", true);
             }
 
             products = ns.corporation
@@ -891,54 +850,27 @@ export async function main(ns: NS): Promise<void> {
                 .sort((a, b) => Number(a.name) - Number(b.name));
 
             // mess with the price of products
-            for (const product of products) {
-                if (product.developmentProgress < 100) continue;
-                let mpMult = Number(product.sCost.toString().slice(3));
-                let reduceMult = false;
-                let increaseMult = 0;
-                for (const [qty, prod, sel] of Object.values(product.cityData)) {
-                    const prodDeficit = prod - sel;
-                    if (qty > prod * 20 && prodDeficit > 0) {
-                        reduceMult = true;
-                        break;
-                    } else if (qty < prod * 10 || prodDeficit < -1) {
-                        increaseMult++;
-                    }
+            const findProp = function (propName: string) {
+                for (const div of eval("document").querySelectorAll("div")) {
+                    const propKey = Object.keys(div)[1];
+                    if (!propKey) continue;
+                    const props = div[propKey];
+                    if (props.children?.props && props.children.props[propName]) return props.children.props[propName];
+                    if (props.children instanceof Array)
+                        for (const child of props.children)
+                            if (child?.props && child.props[propName]) return child.props[propName];
                 }
+            };
 
-                if (reduceMult) {
-                    const oldmpMult = mpMult;
-                    mpMult = Math.max(Math.floor(mpMult * 0.975), 1);
+            const playerProp = findProp("player");
 
-                    llog(ns, "Reducing %s mpMult %d => %d", product.name, oldmpMult, mpMult);
-                    ns.corporation.sellProduct(
-                        tbDivName,
-                        tbRDCity,
-                        product.name,
-                        "MAX",
-                        "MP*" + mpMult.toString(),
-                        true
-                    );
-                } else if (increaseMult === Object.keys(product.cityData).length) {
-                    const oldmpMult = mpMult;
+            if (playerProp?.corporation?.divisions) {
+                const tobaccoDiv = playerProp.corporation.divisions.find((a: {type: string}) => a.type === "Tobacco");
 
-                    mpMult = Math.ceil(mpMult * 1.1);
-
-                    llog(ns, "Increasing %s mpMult %d => %d", product.name, oldmpMult, mpMult);
-                    ns.corporation.sellProduct(
-                        tbDivName,
-                        tbRDCity,
-                        product.name,
-                        "MAX",
-                        "MP*" + mpMult.toString(),
-                        true
-                    );
+                if (tobaccoDiv) {
+                    for (const prod of Object.values(tobaccoDiv.products)) prod.marketTa2 = true;
                 }
             }
-
-            // * start multiplier for new product at the same multiplier for the latest product
-            //
-            // after 3rd round of funding, go public with 0 shares, set dividenend to 5%
 
             // compare price of increasing advertising vs increasing office space, do the cheaper if it's affordable
             let officeSizeIncrease = 0;
@@ -1114,11 +1046,7 @@ export async function main(ns: NS): Promise<void> {
 
             // If all divisions have been built and a 3rd round investment offer is made for > $1.5q, accept
             const offer = ns.corporation.getInvestmentOffer();
-            if (
-                ns.corporation.getCorporation().divisions.length === 14 &&
-                offer.round === 3 &&
-                offer.funds > 1500000000000000
-            ) {
+            if (offer.round === 3 && offer.funds > 1500000000000000) {
                 ns.corporation.acceptInvestmentOffer();
                 llog(
                     ns,
