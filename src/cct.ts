@@ -14,7 +14,7 @@ function answerCCT(ns: NS, cct: CCT, answer: number | string[]) {
 
 class CCT {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    [index: string]:any
+    [index: string]: any;
 
     name: string;
     host: string;
@@ -33,7 +33,56 @@ class CCT {
         this.desc = ns.codingcontract.getDescription(filename, hostname);
         this.data = ns.codingcontract.getData(filename, hostname);
 
-        this.solve = _.bind(CCT["solve" + this.type.replace(/\s/g, "")], null, _, this);
+        switch (this.type) {
+            case "Find Largest Prime Factor":
+                this.solve = _.bind(CCT.solveFindLargestPrimeFactor, null, _, this);
+                break;
+            case "Subarray with Maximum Sum":
+                this.solve = _.bind(CCT.solveSubarraywithMaximumSum, null, _, this);
+                break;
+            case "Total Ways to Sum":
+                this.solve = _.bind(CCT.solveTotalWaystoSum, null, _, this);
+                break;
+            case "Spiralize Matrix":
+                this.solve = _.bind(CCT.solveSpiralizeMatrix, null, _, this);
+                break;
+            case "Array Jumping Game":
+                this.solve = _.bind(CCT.solveArrayJumpingGame, null, _, this);
+                break;
+            case "Merge Overlapping Intervals":
+                this.solve = _.bind(CCT.solveMergeOverlappingIntervals, null, _, this);
+                break;
+            case "Generate IP Addresses":
+                this.solve = _.bind(CCT.solveGenerateIPAddresses, null, _, this);
+                break;
+            case "Algorithmic Stock Trader I":
+                this.solve = _.bind(CCT.solveAlgorithmicStockTraderI, null, _, this);
+                break;
+            case "Algorithmic Stock Trader II":
+                this.solve = _.bind(CCT.solveAlgorithmicStockTraderII, null, _, this);
+                break;
+            case "Algorithmic Stock Trader III":
+                this.solve = _.bind(CCT.solveAlgorithmicStockTraderIII, null, _, this);
+                break;
+            case "Algorithmic Stock Trader IV":
+                this.solve = _.bind(CCT.solveAlgorithmicStockTraderIV, null, _, this);
+                break;
+            case "Minimum Path Sum in a Triangle":
+                this.solve = _.bind(CCT.solveMinimumPathSuminaTriangle, null, _, this);
+                break;
+            case "Unique Paths in a Grid I":
+                this.solve = _.bind(CCT.solveUniquePathsinaGridI, null, _, this);
+                break;
+            case "Unique Paths in a Grid II":
+                this.solve = _.bind(CCT.solveUniquePathsinaGridII, null, _, this);
+                break;
+            case "Sanitize Parentheses in Expression":
+                this.solve = _.bind(CCT.solveSanitizeParenthesesinExpression, null, _, this);
+                break;
+            case "Find All Valid Math Expressions":
+                this.solve = _.bind(CCT.solveFindAllValidMathExpressions, null, _, this);
+                break;
+        }
 
         //this.print(ns);
     }

@@ -1,5 +1,9 @@
 import { NS } from "@ns";
 
+export const WEAKENNS = "/lib/exec/weaken.js";
+export const GROWNS = "/lib/exec/grow.js";
+export const HACKNS = "/lib/exec/hack.js";
+
 export function llog(ns: NS, str: string, ...args: (string | number)[]): void {
     ns.print(ns.sprintf("%8s " + str, new Date().toLocaleTimeString("it-IT"), ...args));
 }

@@ -416,7 +416,7 @@ export async function main(ns: NS): Promise<void> {
 
     // Increase Warehouse Sizes to 2k
     for (const city of ns.corporation.getDivision(agDivName).cities) {
-        while (ns.corporation.getWarehouse(agDivName, city).size < 2000) {
+        while (ns.corporation.getWarehouse(agDivName, city).size < 5000) {
             const upgradeCost = ns.corporation.getUpgradeWarehouseCost(agDivName, city);
             const corpFunds = ns.corporation.getCorporation().funds;
             const startSize = ns.corporation.getWarehouse(agDivName, city).size;
@@ -462,6 +462,8 @@ export async function main(ns: NS): Promise<void> {
             ns.corporation.buyMaterial(agDivName, city, "Real Estate", 0);
         }
     }
+
+	// buy adVert!!
 
     invState = "growing"; // |
 
