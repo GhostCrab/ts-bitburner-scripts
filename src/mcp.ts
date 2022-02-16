@@ -259,7 +259,7 @@ export async function main(ns: NS): Promise<void> {
 			"%50s - %9s %s",
 			"The Red Pill",
 			ns.nFormat(0, "$0.000a"),
-			ns.nFormat(redPillAug.dep, "0.000a")
+			ns.nFormat(redPillAug.rep, "0.000a")
 		);
 	}
 
