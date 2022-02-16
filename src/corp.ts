@@ -32,7 +32,7 @@ function buyOneTimeUpgrades(ns: NS, _upgrades: string | string[]) {
     }
 }
 
-function buyLeveledUpgrades(ns: NS, _upgrades: string | string[], _amount: number, threshold = 1) {
+async function buyLeveledUpgrades(ns: NS, _upgrades: string | string[], _amount: number, threshold = 1) {
     let upgrades: string[];
     if (typeof _upgrades === "string") {
         upgrades = [_upgrades];
@@ -51,6 +51,8 @@ function buyLeveledUpgrades(ns: NS, _upgrades: string | string[], _amount: numbe
             upgradeCost += ns.corporation.getUpgradeLevelCost(upgrade);
             upgradeCount++;
             ns.corporation.levelUpgrade(upgrade);
+
+			await ns.sleep(20);
         }
 
         if (upgradeCount > 0) {
@@ -98,7 +100,7 @@ export async function main(ns: NS): Promise<void> {
 
         // buy levelable upgrades FocusWires, Neural Accelerators, Speech Processor Implants,
         // Nuoptimal Nootropic Injector Implants, and Smart Factories
-        buyLeveledUpgrades(
+        await buyLeveledUpgrades(
             ns,
             [
                 "FocusWires",
@@ -449,11 +451,11 @@ export async function main(ns: NS): Promise<void> {
     }
 
     // Upgrade Smart Factories and Smart Storage
-    buyLeveledUpgrades(ns, ["Smart Factories", "Smart Storage"], 10);
+    await buyLeveledUpgrades(ns, ["Smart Factories", "Smart Storage"], 10);
 
-    // Increase Warehouse Sizes to 5k
+    // Increase Warehouse Sizes to 3k
     for (const city of ns.corporation.getDivision(agDivName).cities) {
-        while (ns.corporation.getWarehouse(agDivName, city).size < 5000) {
+        while (ns.corporation.getWarehouse(agDivName, city).size < 3000) {
             const upgradeCost = ns.corporation.getUpgradeWarehouseCost(agDivName, city);
             const corpFunds = ns.corporation.getCorporation().funds;
             const startSize = ns.corporation.getWarehouse(agDivName, city).size;
@@ -465,6 +467,7 @@ export async function main(ns: NS): Promise<void> {
                     ns.nFormat(corpFunds, "($0.000a)"),
                     ns.nFormat(upgradeCost, "($0.000a)")
                 );
+				break;
             } else {
                 ns.corporation.upgradeWarehouse(agDivName, city);
                 const endSize = ns.corporation.getWarehouse(agDivName, city).size;
@@ -764,7 +767,7 @@ export async function main(ns: NS): Promise<void> {
         await ns.corporation.setAutoJobAssignment(tbDivName, tbRDCity, "Research & Development", 6);
     }
 
-    buyLeveledUpgrades(
+    await buyLeveledUpgrades(
         ns,
         ["FocusWires", "Neural Accelerators", "Speech Processor Implants", "Nuoptimal Nootropic Injector Implants"],
         20
