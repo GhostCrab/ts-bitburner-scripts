@@ -1,12 +1,18 @@
 import { NS } from "@ns";
-import { WEAKENNS, GROWNS, HACKNS } from "lib/util"
+import { WEAKENJS, GROWJS, HACKJS, UTILJS } from "lib/util";
 
-type ReservedScriptCall = {
+export type ReservedScriptCall = {
     script: string;
-    threads: number;
-    offset: number;
-    length: number;
+    host: string;
+    numThreads: number;
+	target: string;
     batchId: number;
+    offset: number;
+    operationTime: number;
+	finish: number;
+	realTimeStart: number;
+	uid: string;
+	writeFile: string;
 };
 
 export class Host {
@@ -28,32 +34,42 @@ export class Host {
     }
 
     getReservedThreads(): number {
-        return this.reservedScriptCalls.reduce((a, b) => a + b.threads, 0);
+        return this.reservedScriptCalls.reduce((a, b) => a + b.numThreads, 0);
     }
 
     getAvailableThreads(): number {
-        return this.reservedScriptCalls.reduce((a, b) => a - b.threads, this.maxThreads);
+        return this.reservedScriptCalls.reduce((a, b) => a - b.numThreads, this.maxThreads);
     }
 
     // return # of threads successfully allocated
     tryReserveThreads(
         ns: NS,
         script: string,
-        threads: number,
+        host: string,
+        numThreads: number,
+		target: string,
+        batchId: number,
         offset: number,
-        length: number,
-        batchId: number
+        operationTime: number,
+		uid: string,
+		writeFile: string
     ): number {
-        const allocateThreads = Math.min(this.getAvailableThreads(), threads);
+        const allocateThreads = Math.min(this.getAvailableThreads(), numThreads);
 
         if (allocateThreads === 0) return allocateThreads;
 
         this.reservedScriptCalls.push({
             script: script,
-            threads: allocateThreads,
-            offset: offset,
-            length: length,
+            host: host,
+            numThreads: allocateThreads,
+			target: target,
             batchId: batchId,
+            offset: offset,
+            operationTime: operationTime,
+			finish: offset + operationTime,
+			realTimeStart: 0,
+			uid: uid,
+			writeFile: writeFile
         });
 
         return allocateThreads;
@@ -75,9 +91,10 @@ export class Host {
     }
 
     async prep(ns: NS, force = false): Promise<void> {
-        if (force || !ns.fileExists(GROWNS, this.hostname)) await ns.scp(GROWNS, "home", this.hostname);
-        if (force || !ns.fileExists(WEAKENNS, this.hostname)) await ns.scp(WEAKENNS, "home", this.hostname);
-        if (force || !ns.fileExists(HACKNS, this.hostname)) await ns.scp(HACKNS, "home", this.hostname);
+        if (force || !ns.fileExists(GROWJS, this.hostname)) await ns.scp(GROWJS, "home", this.hostname);
+        if (force || !ns.fileExists(WEAKENJS, this.hostname)) await ns.scp(WEAKENJS, "home", this.hostname);
+        if (force || !ns.fileExists(HACKJS, this.hostname)) await ns.scp(HACKJS, "home", this.hostname);
+		if (force || !ns.fileExists(UTILJS, this.hostname)) await ns.scp(UTILJS, "home", this.hostname);
     }
 }
 
@@ -110,21 +127,35 @@ export function getMaxThreads(ns: NS, hosts: Host[]): number {
 
 export function reserveThreadsForExecution(
     ns: NS,
-    hosts: Host[],
     script: string,
-    threads: number,
+	hosts: Host[],
+    numThreads: number,
+	target: string,
+    batchId: number,
     offset: number,
-    length: number,
-    batchId: number
+    operationTime: number,
+	uid: string,
+	writeFile: string
 ): boolean {
-    let unallocatedThreads = threads;
+    let unallocatedThreads = numThreads;
     for (const host of hosts) {
-        unallocatedThreads -= host.tryReserveThreads(ns, script, unallocatedThreads, offset, length, batchId);
+        unallocatedThreads -= host.tryReserveThreads(
+            ns,
+            script,
+            host.hostname,
+            unallocatedThreads,
+			target,
+            batchId,
+            offset,
+            operationTime,
+			ns.sprintf("%03d-%s-%s", batchId, uid, host.hostname),
+			writeFile
+        );
         if (unallocatedThreads === 0) {
             return true;
         }
     }
 
-    ns.tprintf("WARNING: Only able to allocate %d/%d %s threads", threads - unallocatedThreads, threads, script);
+    ns.tprintf("WARNING: Only able to allocate %d/%d %s threads", numThreads - unallocatedThreads, numThreads, script);
     return false;
 }

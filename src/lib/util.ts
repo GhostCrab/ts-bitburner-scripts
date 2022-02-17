@@ -1,8 +1,10 @@
 import { NS } from "@ns";
+import { ReservedScriptCall } from "lib/hack/host";
 
-export const WEAKENNS = "/lib/exec/weaken.js";
-export const GROWNS = "/lib/exec/grow.js";
-export const HACKNS = "/lib/exec/hack.js";
+export const WEAKENJS = "/lib/exec/weaken.js";
+export const GROWJS = "/lib/exec/grow.js";
+export const HACKJS = "/lib/exec/hack.js";
+export const UTILJS = "/lib/util.js";
 
 export function llog(ns: NS, str: string, ...args: (string | number)[]): void {
     ns.print(ns.sprintf("%8s " + str, new Date().toLocaleTimeString("it-IT"), ...args));
@@ -205,3 +207,37 @@ export const ALL_FACTIONS = [
     "Bladeburners",
     "Church of the Machine God",
 ];
+
+export async function writeOut(
+    ns: NS,
+    data: ReservedScriptCall,
+    startTime: number,
+    endTime: number,
+    result: string,
+	startSec: number,
+	startCash: number
+): Promise<void> {
+    if (data.writeFile !== "") {
+        const outstr = ns.sprintf(
+            "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+            data.target,
+            data.uid,
+            data.batchId,
+            data.realTimeStart + data.offset,
+            data.realTimeStart + data.finish,
+            data.operationTime,
+            startTime,
+            endTime,
+            endTime - startTime,
+            startTime - (data.realTimeStart + data.offset),
+            endTime - (data.realTimeStart + data.finish),
+            endTime - startTime - data.operationTime,
+            result,
+			startSec.toFixed(2),
+			ns.getServerSecurityLevel(data.target).toFixed(2),
+			ns.nFormat(startCash, "($0.000a)"),
+			ns.nFormat(ns.getServerMoneyAvailable(data.target), "($0.000a)")
+        );
+        await ns.write(data.writeFile, outstr, "a");
+    }
+}

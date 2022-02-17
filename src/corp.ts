@@ -38,7 +38,7 @@ function doAgSell(ns: NS, selloff: boolean) {
                     if (mat.name === "Food") {
                         if (selloff) {
                             mat.marketTa2 = false;
-                            ns.corporation.sellMaterial(agDivName, city, mat.name, "MAX", "MP*0.5");
+                            ns.corporation.sellMaterial(agDivName, city, mat.name, "MAX", "MP*0.4");
                         } else {
                             mat.marketTa2 = false;
                             ns.corporation.sellMaterial(agDivName, city, mat.name, "0", "0");
@@ -284,24 +284,19 @@ export async function main(ns: NS): Promise<void> {
         while (!tookOffer) {
             if (invState === "growing") {
                 // growing, set all sale prices to food 0, plants max and wait until all warehouses are > 95% full
+                doAgSell(ns, false);
                 let countFullWarehouses = 0;
                 for (const city of ns.corporation.getDivision(agDivName).cities) {
-                    ns.corporation.sellMaterial(agDivName, city, "Food", "0", "0");
-                    ns.corporation.sellMaterial(agDivName, city, "Plants", "MAX", "MP");
-
                     const warehouse = ns.corporation.getWarehouse(agDivName, city);
                     if (warehouse.sizeUsed > warehouse.size * 0.95) countFullWarehouses++;
                 }
 
                 if (countFullWarehouses === ns.corporation.getDivision(agDivName).cities.length) {
-                    for (const city of ns.corporation.getDivision(agDivName).cities) {
-                        ns.corporation.sellMaterial(agDivName, city, "Food", "MAX", "MP*0.7");
-                        ns.corporation.sellMaterial(agDivName, city, "Plants", "MAX", "MP*0.7");
-                    }
+                    doAgSell(ns, true);
 
                     llog(
                         ns,
-                        "Investment round 1: %s warehouses are full, initiating bulk sell-off to woo investors",
+                        "Investment round 2: %s warehouses are full, initiating bulk sell-off to woo investors",
                         agDivName
                     );
 
@@ -309,22 +304,17 @@ export async function main(ns: NS): Promise<void> {
                 }
             } else {
                 // selling - bulk sell everything at market price until all warehouses are empty
+                doAgSell(ns, true);
                 let countEmptyWarehouses = 0;
                 for (const city of ns.corporation.getDivision(agDivName).cities) {
-                    ns.corporation.sellMaterial(agDivName, city, "Food", "MAX", "MP*0.7");
-                    ns.corporation.sellMaterial(agDivName, city, "Plants", "MAX", "MP*0.7");
-
                     const warehouse = ns.corporation.getWarehouse(agDivName, city);
                     if (warehouse.sizeUsed < 160) countEmptyWarehouses++;
                 }
 
                 if (countEmptyWarehouses === ns.corporation.getDivision(agDivName).cities.length) {
-                    for (const city of ns.corporation.getDivision(agDivName).cities) {
-                        ns.corporation.sellMaterial(agDivName, city, "Food", "0", "0");
-                        ns.corporation.sellMaterial(agDivName, city, "Plants", "MAX", "MP");
-                    }
+                    doAgSell(ns, false);
 
-                    llog(ns, "Investment round 1: %s warehoses are empty, beginning stockpile", agDivName);
+                    llog(ns, "Investment round 2: %s warehoses are empty, beginning stockpile", agDivName);
 
                     invState = "growing";
                 }

@@ -1,7 +1,7 @@
 import { NS, Server, Player } from "@ns";
-import { stFormat, stdFormat, WEAKENNS, GROWNS, HACKNS } from "lib/util";
+import { stFormat, stdFormat, WEAKENJS, GROWJS, HACKJS } from "lib/util";
 import { getCycleProductionLookup } from "lib/hack/cycle_production";
-import { Host, generateHosts, reserveThreadsForExecution, getMaxThreads } from "lib/hack/host";
+import { Host, generateHosts, reserveThreadsForExecution, getMaxThreads, ReservedScriptCall } from "lib/hack/host";
 
 export const TSPACER = 400;
 
@@ -81,15 +81,17 @@ export class SmartHackEnv {
     simTarget: Server;
     simPlayer: Player;
 
+    writeFile = "";
+
     constructor(ns: NS, targetname: string, hostnames: string[]) {
         this.targetname = targetname;
         this.highMoney = ns.getServerMaxMoney(this.targetname);
         this.lowMoney = ns.getServerMaxMoney(this.targetname) * 0.5;
         this.tspacer = TSPACER; // CONST
 
-        this.weakenRam = ns.getScriptRam(WEAKENNS);
-        this.growRam = ns.getScriptRam(GROWNS);
-        this.hackRam = ns.getScriptRam(HACKNS);
+        this.weakenRam = ns.getScriptRam(WEAKENJS);
+        this.growRam = ns.getScriptRam(GROWJS);
+        this.hackRam = ns.getScriptRam(HACKJS);
         this.threadSize = Math.max(this.weakenRam, this.growRam, this.hackRam);
 
         this.cores = 1; // Simplify
@@ -144,11 +146,40 @@ export class SmartHackEnv {
         this.simEnabled = false;
         this.simTarget = ns.getServer(this.targetname);
         this.simPlayer = ns.getPlayer();
+
+        //this.writeFile = ns.sprintf("%s-%d.txt", this.targetname, new Date().getTime());
     }
 
     async init(ns: NS, force = false): Promise<void> {
         for (const host of this.hosts) {
             await host.prep(ns, force);
+        }
+
+        if (this.writeFile !== "") {
+            await ns.write(
+                this.writeFile,
+                ns.sprintf(
+                    "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+                    "Target Name",
+                    "UID",
+                    "Batch ID",
+                    "Start Time",
+                    "End Time",
+                    "Operation Time",
+                    "Real Start Time",
+                    "Real End Time",
+                    "Real Operation Time",
+                    "Start Time Diff",
+                    "End Time Diff",
+                    "Operation Time Diff",
+                    "Result",
+                    "Security Before",
+                    "Security After",
+                    "Cash Before",
+                    "Cash After"
+                ),
+                "w"
+            );
         }
     }
 
@@ -274,7 +305,7 @@ export class SmartHackEnv {
 
         // Weaken Info
         this.weakenTime = this.getWeakenTime(ns);
-        this.weakenAmountPerThread = ns.weakenAnalyze(1, this.cores);
+        this.weakenAmountPerThread = 0.05 * ns.getBitNodeMultipliers().ServerWeakenRate * this.cores;
 
         // Cycle Info
         this.cycleFullTime = this.weakenTime + this.tspacer * 2;
@@ -399,22 +430,28 @@ export class SmartHackEnv {
             if (primaryGrowThreads > 0)
                 reserveThreadsForExecution(
                     ns,
+                    GROWJS,
                     this.hosts,
-                    GROWNS,
                     primaryGrowThreads,
+                    this.targetname,
+                    0,
                     growOffsetTime,
                     this.growTime,
-                    0
+                    "0PG",
+                    this.writeFile
                 );
             if (primaryWeakenThreads > 0)
                 reserveThreadsForExecution(
                     ns,
+                    WEAKENJS,
                     this.hosts,
-                    WEAKENNS,
                     primaryWeakenThreads,
+                    this.targetname,
+                    0,
                     weakenGrowOffsetTime,
                     this.weakenTime,
-                    0
+                    "1PW",
+                    this.writeFile
                 );
         }
 
@@ -423,56 +460,70 @@ export class SmartHackEnv {
             const cycleOffsetTime = i * this.cycleSpacer;
             reserveThreadsForExecution(
                 ns,
+                HACKJS,
                 this.hosts,
-                HACKNS,
                 this.hackThreads,
+                this.targetname,
+                i,
                 cycleOffsetTime + hackOffsetTime,
                 this.hackTime,
-                i
+                "0H",
+                this.writeFile
             );
             reserveThreadsForExecution(
                 ns,
+                GROWJS,
                 this.hosts,
-                GROWNS,
                 this.growThreads,
+                this.targetname,
+                i,
                 cycleOffsetTime + growOffsetTime,
                 this.growTime,
-                i
+                "2G",
+                this.writeFile
             );
             reserveThreadsForExecution(
                 ns,
+                WEAKENJS,
                 this.hosts,
-                WEAKENNS,
                 this.weakenHackThreads,
+                this.targetname,
+                i,
                 cycleOffsetTime,
                 this.weakenTime,
-                i
+                "1WH",
+                this.writeFile
             );
             reserveThreadsForExecution(
                 ns,
+                WEAKENJS,
                 this.hosts,
-                WEAKENNS,
                 this.weakenGrowThreads,
+                this.targetname,
+                i,
                 cycleOffsetTime + weakenGrowOffsetTime,
                 this.weakenTime,
-                i
+                "3WG",
+                this.writeFile
             );
         }
 
         const port = ns.getPortHandle(1);
         port.clear();
-        port.write(JSON.stringify([
-            new Date(),
-            this.cycleBatchTime,
-            this.targetname,
-            ns.getScriptIncome(ns.getScriptName(), ns.getHostname(), ...ns.args).toString(),
-            "SMART",
-        ]));
+        port.write(
+            JSON.stringify([
+                new Date(),
+                this.cycleBatchTime,
+                this.targetname,
+                ns.getScriptIncome(ns.getScriptName(), ns.getHostname(), ...ns.args).toString(),
+                "SMART",
+            ])
+        );
 
         this.logStats(ns);
 
         await this.execute(ns);
-        this.resetThreads()
+        this.resetThreads();
 
         return true;
     }
@@ -539,50 +590,25 @@ export class SmartHackEnv {
     }
 
     async execute(ns: NS): Promise<void> {
-        let execs = [];
-        for (const host of this.hosts) {
-            for (const scriptCall of host.reservedScriptCalls) {
-                execs.push({
-                    script: scriptCall.script,
-                    host: host.hostname,
-                    threads: scriptCall.threads,
-                    target: this.targetname,
-                    delay: scriptCall.offset,
-                    pos: execs.length,
-                    finish: scriptCall.offset + scriptCall.length,
-                    batchId: scriptCall.batchId,
-                });
-            }
-        }
-
-        execs = execs.sort((a, b) => b.delay - a.delay);
-
-        // for (const exec of execs) {
-        //     ns.tprintf(
-        //         "%20s:%02d-%9s %4d %s %s",
-        //         exec.host,
-        //         exec.batchId,
-        //         exec.script,
-        //         exec.threads,
-        //         stFormat(ns, exec.delay),
-        //         stFormat(ns, exec.finish)
-        //     );
-        // }
+        let execs: ReservedScriptCall[] = [];
+        this.hosts.map((host) => host.reservedScriptCalls.map((sc) => execs.push(sc)));
+        execs = execs.sort((a, b) => b.offset - a.offset);
 
         this.waitPID = 0;
         let waitPIDFinishTime = 0;
         const startTime = new Date().getTime();
+        execs.map((exec) => (exec.realTimeStart = startTime));
         while (execs.length > 0) {
             const exec = execs.pop();
 
             if (exec === undefined) break;
 
-            while (new Date().getTime() - startTime < exec.delay) await ns.sleep(5);
+            while (new Date().getTime() - startTime < exec.offset) await ns.sleep(5);
 
             // script call has come up, make sure it is starting and finishing within +- tspacer / 2
             const curTOffset = new Date().getTime() - startTime;
-            const delayDiff = Math.abs(curTOffset - exec.delay);
-            if (delayDiff > this.tspacer / 2) {
+            const offsetDiff = Math.abs(curTOffset - exec.offset);
+            if (offsetDiff > this.tspacer / 2) {
                 execs = execs.filter((a) => a.batchId !== exec.batchId);
                 ns.print(
                     ns.sprintf(
@@ -590,9 +616,9 @@ export class SmartHackEnv {
                         exec.target,
                         exec.script,
                         exec.batchId,
-                        curTOffset - exec.delay,
+                        curTOffset - exec.offset,
                         this.tspacer / 2,
-                        stFormat(ns, exec.delay, true),
+                        stFormat(ns, exec.offset, true),
                         stFormat(ns, curTOffset, true)
                     )
                 );
@@ -600,9 +626,9 @@ export class SmartHackEnv {
             }
 
             let finishTOffset = curTOffset;
-            if (exec.script === WEAKENNS) finishTOffset += ns.getWeakenTime(exec.target);
-            if (exec.script === GROWNS) finishTOffset += ns.getGrowTime(exec.target);
-            if (exec.script === HACKNS) finishTOffset += ns.getHackTime(exec.target);
+            if (exec.script === WEAKENJS) finishTOffset += ns.getWeakenTime(exec.target);
+            if (exec.script === GROWJS) finishTOffset += ns.getGrowTime(exec.target);
+            if (exec.script === HACKJS) finishTOffset += ns.getHackTime(exec.target);
 
             const finishDiff = Math.abs(finishTOffset - exec.finish);
             if (finishDiff > this.tspacer / 2) {
@@ -622,7 +648,7 @@ export class SmartHackEnv {
                 continue;
             }
 
-            const pid = ns.exec(exec.script, exec.host, exec.threads, exec.target, exec.pos, startTime);
+            const pid = ns.exec(exec.script, exec.host, exec.numThreads, JSON.stringify(exec));
             if (waitPIDFinishTime <= exec.finish) {
                 this.waitPID = pid;
                 waitPIDFinishTime = exec.finish;
@@ -667,11 +693,15 @@ export class SmartHackEnv {
                 if (simTime + this.cycleBatchTime > time || !result) break;
 
                 if (this.primaryStats.primaryThreadsTotal === 0) simState = 1;
-                this.simTarget.moneyAvailable *= ns.formulas.hacking.growPercent(this.simTarget, this.primaryStats.primaryGrowThreads, this.simPlayer)
-                this.simTarget.moneyAvailable = Math.min(this.simTarget.moneyAvailable, this.simTarget.moneyMax)
+                this.simTarget.moneyAvailable *= ns.formulas.hacking.growPercent(
+                    this.simTarget,
+                    this.primaryStats.primaryGrowThreads,
+                    this.simPlayer
+                );
+                this.simTarget.moneyAvailable = Math.min(this.simTarget.moneyAvailable, this.simTarget.moneyMax);
                 this.simTarget.hackDifficulty += ns.growthAnalyzeSecurity(this.primaryStats.primaryGrowThreads);
                 this.simTarget.hackDifficulty -= ns.weakenAnalyze(this.primaryStats.primaryWeakenThreads);
-                this.simTarget.hackDifficulty = Math.max(this.simTarget.minDifficulty, this.simTarget.hackDifficulty)
+                this.simTarget.hackDifficulty = Math.max(this.simTarget.minDifficulty, this.simTarget.hackDifficulty);
 
                 simIncome += this.hackTotal * (this.cycleTotal - 1);
                 simTime += this.cycleBatchTime;
@@ -689,7 +719,13 @@ export class SmartHackEnv {
         this.simEnabled = false;
 
         if (simIncome === 0) {
-            ns.tprintf("%s - %s (%s / %s)", this.targetname, stFormat(ns, this.cycleBatchTime), this.simTarget.hackDifficulty, this.simTarget.minDifficulty);
+            ns.tprintf(
+                "%s - %s (%s / %s)",
+                this.targetname,
+                stFormat(ns, this.cycleBatchTime),
+                this.simTarget.hackDifficulty,
+                this.simTarget.minDifficulty
+            );
             return 0;
         }
 
