@@ -19,7 +19,9 @@ function findProp(propName: string) {
     }
 }
 
-function doAgSell(ns: NS, selloff: boolean) {
+// 237/235 selling at MP
+
+async function doAgSell(ns: NS, selloff: boolean): Promise<void> {
     const playerProp = findProp("player");
     const agDivName = "Agriculture";
 
@@ -28,6 +30,19 @@ function doAgSell(ns: NS, selloff: boolean) {
 
         if (agDiv) {
             for (const [city, warehouse] of Object.entries(agDiv.warehouses)) {
+                const employeeCount = ns.corporation.getOffice(agDivName, city).employees.length;
+                if (selloff) {
+                    // all Business
+                    await ns.corporation.setAutoJobAssignment(agDivName, city, "Operations", 0);
+                    await ns.corporation.setAutoJobAssignment(agDivName, city, "Engineer", 1);
+                    await ns.corporation.setAutoJobAssignment(agDivName, city, "Business", employeeCount-1);
+                } else {
+                    // all Operations
+                    await ns.corporation.setAutoJobAssignment(agDivName, city, "Engineer", 0);
+                    await ns.corporation.setAutoJobAssignment(agDivName, city, "Business", 0);
+                    await ns.corporation.setAutoJobAssignment(agDivName, city, "Operations", employeeCount);
+                    
+                }
                 for (const matName of Object.keys(warehouse.materials)) {
                     // eslint-disable-next-line no-prototype-builtins
                     if (!warehouse.materials.hasOwnProperty(matName)) continue;
@@ -38,7 +53,7 @@ function doAgSell(ns: NS, selloff: boolean) {
                     if (mat.name === "Food") {
                         if (selloff) {
                             mat.marketTa2 = false;
-                            ns.corporation.sellMaterial(agDivName, city, mat.name, "MAX", "MP*0.4");
+                            ns.corporation.sellMaterial(agDivName, city, mat.name, "MAX", "MP*1");
                         } else {
                             mat.marketTa2 = false;
                             ns.corporation.sellMaterial(agDivName, city, mat.name, "0", "0");
@@ -274,17 +289,16 @@ export async function main(ns: NS): Promise<void> {
         }
     }
 
-    let invState: "growing" | "selling" = "growing";
-
     // Attempt to get first round of funding
     if (ns.corporation.getInvestmentOffer().round < 2) {
-        llog(ns, "Investment round 1: waiting for %s warehouses to fill", agDivName);
+        llog(ns, "Investment round 1: %s warehoses are empty, beginning stockpile", agDivName);
+        let invState: "growing" | "selling" = "growing";
+        await doAgSell(ns, false);
 
         let tookOffer = false;
         while (!tookOffer) {
             if (invState === "growing") {
                 // growing, set all sale prices to food 0, plants max and wait until all warehouses are > 95% full
-                doAgSell(ns, false);
                 let countFullWarehouses = 0;
                 for (const city of ns.corporation.getDivision(agDivName).cities) {
                     const warehouse = ns.corporation.getWarehouse(agDivName, city);
@@ -292,11 +306,11 @@ export async function main(ns: NS): Promise<void> {
                 }
 
                 if (countFullWarehouses === ns.corporation.getDivision(agDivName).cities.length) {
-                    doAgSell(ns, true);
+                    await doAgSell(ns, true);
 
                     llog(
                         ns,
-                        "Investment round 2: %s warehouses are full, initiating bulk sell-off to woo investors",
+                        "Investment round 1: %s warehouses are full, initiating bulk sell-off to woo investors",
                         agDivName
                     );
 
@@ -304,7 +318,6 @@ export async function main(ns: NS): Promise<void> {
                 }
             } else {
                 // selling - bulk sell everything at market price until all warehouses are empty
-                doAgSell(ns, true);
                 let countEmptyWarehouses = 0;
                 for (const city of ns.corporation.getDivision(agDivName).cities) {
                     const warehouse = ns.corporation.getWarehouse(agDivName, city);
@@ -312,9 +325,9 @@ export async function main(ns: NS): Promise<void> {
                 }
 
                 if (countEmptyWarehouses === ns.corporation.getDivision(agDivName).cities.length) {
-                    doAgSell(ns, false);
+                    await doAgSell(ns, false);
 
-                    llog(ns, "Investment round 2: %s warehoses are empty, beginning stockpile", agDivName);
+                    llog(ns, "Investment round 1: %s warehoses are empty, beginning stockpile", agDivName);
 
                     invState = "growing";
                 }
@@ -328,8 +341,8 @@ export async function main(ns: NS): Promise<void> {
                 ns.nFormat(ns.corporation.getCorporation().revenue, "(0.000a)")
             );
 
-            // only take offers over $335b
-            if (offer.funds > 335000000000) {
+            // only take offers over $800b
+            if (offer.funds > 800000000000) {
                 ns.corporation.acceptInvestmentOffer();
                 llog(
                     ns,
@@ -387,8 +400,8 @@ export async function main(ns: NS): Promise<void> {
 
         await ns.corporation.setAutoJobAssignment(agDivName, city, "Operations", 2);
         await ns.corporation.setAutoJobAssignment(agDivName, city, "Engineer", 2);
-        await ns.corporation.setAutoJobAssignment(agDivName, city, "Business", 1);
-        await ns.corporation.setAutoJobAssignment(agDivName, city, "Management", 2);
+        await ns.corporation.setAutoJobAssignment(agDivName, city, "Business", 2);
+        await ns.corporation.setAutoJobAssignment(agDivName, city, "Management", 1);
         await ns.corporation.setAutoJobAssignment(agDivName, city, "Research & Development", 2);
     }
 
@@ -445,17 +458,16 @@ export async function main(ns: NS): Promise<void> {
         }
     }
 
-    invState = "growing";
-
     // Attempt to get first round of funding
     if (ns.corporation.getInvestmentOffer().round < 3) {
-        llog(ns, "Investment round 2: waiting for %s warehouses to fill", agDivName);
+        llog(ns, "Investment round 2: %s warehoses are empty, beginning stockpile", agDivName);
+        let invState: "growing" | "selling" = "growing";
+        await doAgSell(ns, false);
 
         let tookOffer = false;
         while (!tookOffer) {
             if (invState === "growing") {
                 // growing, set all sale prices to food 0, plants max and wait until all warehouses are > 95% full
-                doAgSell(ns, false);
                 let countFullWarehouses = 0;
                 for (const city of ns.corporation.getDivision(agDivName).cities) {
                     const warehouse = ns.corporation.getWarehouse(agDivName, city);
@@ -463,7 +475,7 @@ export async function main(ns: NS): Promise<void> {
                 }
 
                 if (countFullWarehouses === ns.corporation.getDivision(agDivName).cities.length) {
-                    doAgSell(ns, true);
+                    await doAgSell(ns, true);
 
                     llog(
                         ns,
@@ -475,7 +487,6 @@ export async function main(ns: NS): Promise<void> {
                 }
             } else {
                 // selling - bulk sell everything at market price until all warehouses are empty
-                doAgSell(ns, true);
                 let countEmptyWarehouses = 0;
                 for (const city of ns.corporation.getDivision(agDivName).cities) {
                     const warehouse = ns.corporation.getWarehouse(agDivName, city);
@@ -483,7 +494,7 @@ export async function main(ns: NS): Promise<void> {
                 }
 
                 if (countEmptyWarehouses === ns.corporation.getDivision(agDivName).cities.length) {
-                    doAgSell(ns, false);
+                    await doAgSell(ns, false);
 
                     llog(ns, "Investment round 2: %s warehoses are empty, beginning stockpile", agDivName);
 
@@ -515,7 +526,15 @@ export async function main(ns: NS): Promise<void> {
         }
     }
 
-    doAgSell(ns, true);
+    for (const city of ns.corporation.getDivision(agDivName).cities) {
+        await ns.corporation.setAutoJobAssignment(agDivName, city, "Unassigned", 9);
+
+        await ns.corporation.setAutoJobAssignment(agDivName, city, "Operations", 2);
+        await ns.corporation.setAutoJobAssignment(agDivName, city, "Engineer", 2);
+        await ns.corporation.setAutoJobAssignment(agDivName, city, "Business", 2);
+        await ns.corporation.setAutoJobAssignment(agDivName, city, "Management", 1);
+        await ns.corporation.setAutoJobAssignment(agDivName, city, "Research & Development", 2);
+    }
 
     // open the Tobacco division
     if (ns.corporation.getCorporation().divisions.find((div) => div.type === tbDivName) === undefined) {

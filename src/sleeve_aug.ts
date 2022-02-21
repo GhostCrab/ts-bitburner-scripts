@@ -1,6 +1,7 @@
 import { NS, AugmentationStats } from "@ns";
 
 function isHackUseful(stats: AugmentationStats): boolean {
+    return true;
     if (stats.company_rep_mult) return true;
     if (stats.faction_rep_mult) return true;
     if (stats.hacking_chance_mult) return true;

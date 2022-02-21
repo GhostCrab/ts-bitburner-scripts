@@ -1,6 +1,11 @@
 import { NS, AugmentationStats } from "@ns";
 import { stFormat } from "lib/util";
 
+// AUG NOTES:
+// CyberSec - Cranial Signal Processors - $70m [10k]
+// NiteSec - CRTX42-AA Gene Modification - $225m [45k]
+// The Black Hand - The Black Hand - $550m [100k]
+
 export class Augmentation {
     name: string;
     faction: string;

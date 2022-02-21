@@ -163,7 +163,7 @@ export async function main(ns: NS): Promise<void> {
 
         hashServerUpgrades = hashServerUpgrades
             .sort((a, b) => b.upgradeValue - a.upgradeValue)
-            .filter((a) => a.upgradeValue * 1000000000 > 0.15);
+            //.filter((a) => a.upgradeValue * 1000000000 > 0.15);
 
         const targetUpgrade = hashServerUpgrades[0];
         if (targetUpgrade) {

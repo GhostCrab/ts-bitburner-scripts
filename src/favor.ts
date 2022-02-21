@@ -13,7 +13,7 @@ export async function main(ns: NS): Promise<void> {
 
     for (const faction of ns.getPlayer().factions) {
         const favor = ns.getFactionFavor(faction);
-        const targetRep = favorToRep(75);
+        const targetRep = favorToRep(150);
         const currentRep =
             ns.getFactionRep(faction) +
             (ns.getPlayer().currentWorkFactionName === faction ? ns.getPlayer().workRepGained : 0);
