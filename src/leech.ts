@@ -7,7 +7,7 @@ import { NS } from "@ns";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data: string, args: string): string[] {
-    return ["sec", "money", "cct", "gym"]; // Autocomplete 3 specific strings.
+    return ["sec", "money", "cct", "gym", "research"]; // Autocomplete 3 specific strings.
 }
 
 export async function main(ns: NS): Promise<void> {
@@ -28,6 +28,10 @@ export async function main(ns: NS): Promise<void> {
         case "gym": {
             buy = "Improve Gym Training";
             break;            
+        }
+        case "research": {
+            buy = "Exchange for Corporation Research"
+            break;
         }
         case "sell":
         default: {

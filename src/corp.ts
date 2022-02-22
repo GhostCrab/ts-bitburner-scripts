@@ -6,6 +6,9 @@ const CITIES = ["Aevum", "Chongqing", "Sector-12", "New Tokyo", "Ishima", "Volha
 type Industry = {
     products: { [key: string]: { marketTa2: boolean } };
     warehouses: { [key: string]: { materials: { [key: string]: { name: string; marketTa2: boolean } } } };
+    offices: {
+        [key: string]: { employees: [{ pos: string }]; setEmployeeToJob(job: string, amount: number): boolean };
+    };
 };
 
 function findProp(propName: string) {
@@ -21,6 +24,37 @@ function findProp(propName: string) {
 
 // 237/235 selling at MP
 
+function unassignEmployees(divisionName: string, cityName: string): void {
+    const playerProp = findProp("player");
+
+    if (playerProp?.corporation?.divisions) {
+        const division: Industry = playerProp.corporation.divisions.find((a: { type: string }) => a.type === divisionName);
+
+        if (division) {
+            const office = division.offices[cityName];
+            if (office) {
+                for (const employee of office.employees) {
+                    employee.pos = "Unassigned";
+                }
+            }
+        }
+    }
+}
+
+function unassignAllEmployees(divisionName: string): void {
+    const playerProp = findProp("player");
+
+    if (playerProp?.corporation?.divisions) {
+        const division: Industry = playerProp.corporation.divisions.find((a: { type: string }) => a.type === divisionName);
+
+        if (division) {
+            for (const cityName of Object.keys(division.offices)) {
+                unassignEmployees(divisionName, cityName)
+            }
+        }
+    }
+}
+
 async function doAgSell(ns: NS, selloff: boolean): Promise<void> {
     const playerProp = findProp("player");
     const agDivName = "Agriculture";
@@ -29,20 +63,22 @@ async function doAgSell(ns: NS, selloff: boolean): Promise<void> {
         const agDiv: Industry = playerProp.corporation.divisions.find((a: { type: string }) => a.type === agDivName);
 
         if (agDiv) {
-            for (const [city, warehouse] of Object.entries(agDiv.warehouses)) {
-                const employeeCount = ns.corporation.getOffice(agDivName, city).employees.length;
+            for (const office of Object.values(agDiv.offices)) {
+                const employeeCount = office.employees.length;
                 if (selloff) {
                     // all Business
-                    await ns.corporation.setAutoJobAssignment(agDivName, city, "Operations", 0);
-                    await ns.corporation.setAutoJobAssignment(agDivName, city, "Engineer", 1);
-                    await ns.corporation.setAutoJobAssignment(agDivName, city, "Business", employeeCount-1);
+                    unassignAllEmployees(agDivName);
+
+                    office.setEmployeeToJob("Engineer", 1);
+                    office.setEmployeeToJob("Business", employeeCount - 1);
                 } else {
                     // all Operations
-                    await ns.corporation.setAutoJobAssignment(agDivName, city, "Engineer", 0);
-                    await ns.corporation.setAutoJobAssignment(agDivName, city, "Business", 0);
-                    await ns.corporation.setAutoJobAssignment(agDivName, city, "Operations", employeeCount);
-                    
+                    unassignAllEmployees(agDivName);
+
+                    office.setEmployeeToJob("Operations", employeeCount);
                 }
+            }
+            for (const [city, warehouse] of Object.entries(agDiv.warehouses)) {
                 for (const matName of Object.keys(warehouse.materials)) {
                     // eslint-disable-next-line no-prototype-builtins
                     if (!warehouse.materials.hasOwnProperty(matName)) continue;
@@ -205,6 +241,7 @@ export async function main(ns: NS): Promise<void> {
             ns.corporation.hireEmployee(agDivName, city);
             ns.corporation.hireEmployee(agDivName, city);
             ns.corporation.hireEmployee(agDivName, city);
+            llog(ns, "Setting Jobs Initial");
             await ns.corporation.setAutoJobAssignment(agDivName, city, "Operations", 1);
             await ns.corporation.setAutoJobAssignment(agDivName, city, "Engineer", 1);
             await ns.corporation.setAutoJobAssignment(agDivName, city, "Business", 1);
@@ -396,6 +433,7 @@ export async function main(ns: NS): Promise<void> {
             ns.corporation.hireEmployee(agDivName, city);
         }
 
+        llog(ns, "Setting Jobs Second Round Hire");
         await ns.corporation.setAutoJobAssignment(agDivName, city, "Unassigned", 9);
 
         await ns.corporation.setAutoJobAssignment(agDivName, city, "Operations", 2);
@@ -526,16 +564,6 @@ export async function main(ns: NS): Promise<void> {
         }
     }
 
-    for (const city of ns.corporation.getDivision(agDivName).cities) {
-        await ns.corporation.setAutoJobAssignment(agDivName, city, "Unassigned", 9);
-
-        await ns.corporation.setAutoJobAssignment(agDivName, city, "Operations", 2);
-        await ns.corporation.setAutoJobAssignment(agDivName, city, "Engineer", 2);
-        await ns.corporation.setAutoJobAssignment(agDivName, city, "Business", 2);
-        await ns.corporation.setAutoJobAssignment(agDivName, city, "Management", 1);
-        await ns.corporation.setAutoJobAssignment(agDivName, city, "Research & Development", 2);
-    }
-
     // open the Tobacco division
     if (ns.corporation.getCorporation().divisions.find((div) => div.type === tbDivName) === undefined) {
         const divCost = ns.corporation.getExpandIndustryCost(tbDivName);
@@ -664,6 +692,8 @@ export async function main(ns: NS): Promise<void> {
             ns.corporation.hireEmployee(tbDivName, city);
         }
 
+        llog(ns, "Setting Tobacco Jobs");
+
         await ns.corporation.setAutoJobAssignment(tbDivName, city, "Unassigned", 2);
         await ns.corporation.setAutoJobAssignment(tbDivName, city, "Operations", 2);
         await ns.corporation.setAutoJobAssignment(tbDivName, city, "Engineer", 2);
@@ -711,6 +741,7 @@ export async function main(ns: NS): Promise<void> {
             ns.corporation.hireEmployee(tbDivName, tbRDCity);
         }
 
+        llog(ns, "Setting Tobacco Aevum Jobs");
         await ns.corporation.setAutoJobAssignment(tbDivName, tbRDCity, "Unassigned", 30);
 
         await ns.corporation.setAutoJobAssignment(tbDivName, tbRDCity, "Operations", 6);
