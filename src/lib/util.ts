@@ -1,6 +1,12 @@
 import { NS } from "@ns";
 import { ReservedScriptCall } from "lib/hack/host";
 
+export enum ReservedPorts {
+    HACKING_INFO = 1,
+    HACKNET_INFO,
+    HACK_WRITE_INFO,
+}
+
 export const WEAKENJS = "/lib/exec/weaken.js";
 export const GROWJS = "/lib/exec/grow.js";
 export const HACKJS = "/lib/exec/hack.js";
@@ -214,8 +220,8 @@ export async function writeOut(
     startTime: number,
     endTime: number,
     result: string,
-	startSec: number,
-	startCash: number
+    startSec: number,
+    startCash: number
 ): Promise<void> {
     if (data.writeFile !== "") {
         const outstr = ns.sprintf(
@@ -233,11 +239,12 @@ export async function writeOut(
             endTime - (data.realTimeStart + data.finish),
             endTime - startTime - data.operationTime,
             result,
-			startSec.toFixed(2),
-			ns.getServerSecurityLevel(data.target).toFixed(2),
-			ns.nFormat(startCash, "($0.000a)"),
-			ns.nFormat(ns.getServerMoneyAvailable(data.target), "($0.000a)")
+            startSec.toFixed(2),
+            ns.getServerSecurityLevel(data.target).toFixed(2),
+            ns.nFormat(startCash, "($0.000a)"),
+            ns.nFormat(ns.getServerMoneyAvailable(data.target), "($0.000a)")
         );
-        await ns.write(data.writeFile, outstr, "a");
+
+        while (!await ns.tryWritePort(ReservedPorts.HACK_WRITE_INFO, [data.writeFile, outstr]));
     }
 }

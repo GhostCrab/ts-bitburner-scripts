@@ -255,23 +255,27 @@ export class SmartHackEnv {
     /** @param {import(".").NS } ns */
     calcGrowThreads(ns: NS, _growMult: number, assumeMinSec = false): number {
         const growMult = _growMult === undefined ? this.growMult : _growMult;
-        if (growMult < 1) return 0;
-        if (this.simEnabled) {
-            if (assumeMinSec) {
-                const simTarget = Object.assign({}, this.simTarget);
-                simTarget.hackDifficulty = simTarget.minDifficulty;
-                return Math.ceil(this.numCycleForGrowth(ns, simTarget, growMult, this.simPlayer));
+        let threads = 0;
+        if (growMult >= 1) {
+            if (this.simEnabled) {
+                if (assumeMinSec) {
+                    const simTarget = Object.assign({}, this.simTarget);
+                    simTarget.hackDifficulty = simTarget.minDifficulty;
+                    threads = this.numCycleForGrowth(ns, simTarget, growMult, this.simPlayer);
+                } else {
+                    threads = this.numCycleForGrowth(ns, this.simTarget, growMult, this.simPlayer);
+                }
+            } else {
+                if (assumeMinSec) {
+                    const simTarget = ns.getServer(this.targetname);
+                    simTarget.hackDifficulty = simTarget.minDifficulty;
+                    threads = this.numCycleForGrowth(ns, simTarget, growMult, ns.getPlayer());
+                } else {
+                    threads = ns.growthAnalyze(this.targetname, growMult, this.cores);
+                }
             }
-            return Math.ceil(this.numCycleForGrowth(ns, this.simTarget, growMult, this.simPlayer));
         }
-
-        if (assumeMinSec) {
-            const simTarget = ns.getServer(this.targetname);
-            simTarget.hackDifficulty = simTarget.minDifficulty;
-            return Math.ceil(this.numCycleForGrowth(ns, simTarget, growMult, ns.getPlayer()));
-        }
-
-        return Math.ceil(ns.growthAnalyze(this.targetname, growMult, this.cores));
+        return Math.ceil(threads * 1.1);
     }
 
     /** @param {import(".").NS } ns */

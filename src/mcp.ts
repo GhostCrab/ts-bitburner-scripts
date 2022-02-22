@@ -213,10 +213,18 @@ export async function main(ns: NS): Promise<void> {
     }
 
     // see how many Neuroflux Governors we can buy
-    const topFactionRep =
+    const topFactionForNeuroflux =
         sortedFactions.length > 0
-            ? (ns.getPlayer().currentWorkFactionName === sortedFactions[0] ? ns.getPlayer().workRepGained : 0) +
-              ns.getFactionRep(sortedFactions[0])
+            ? ns.gang.inGang() && ns.gang.getGangInformation().faction === sortedFactions[0]
+                ? sortedFactions.length > 1
+                    ? sortedFactions[1]
+                    : ""
+                : sortedFactions[0]
+            : "";
+    const topFactionRep =
+        topFactionForNeuroflux !== ""
+            ? (ns.getPlayer().currentWorkFactionName === topFactionForNeuroflux ? ns.getPlayer().workRepGained : 0) +
+              ns.getFactionRep(topFactionForNeuroflux)
             : 0;
     let ngPrice = ns.getAugmentationPrice("NeuroFlux Governor") * (ns.args[0] && buysafe ? 1 : mult);
     let ngRepReq = ns.getAugmentationRepReq("NeuroFlux Governor");
@@ -225,10 +233,10 @@ export async function main(ns: NS): Promise<void> {
     while (true) {
         if (total + ngPrice < startmoney && ngRepReq <= topFactionRep) {
             if (ns.args[0] && buysafe) {
-                const result = ns.purchaseAugmentation(sortedFactions[0], "NeuroFlux Governor");
+                const result = ns.purchaseAugmentation(topFactionForNeuroflux, "NeuroFlux Governor");
                 if (!result) {
                     ns.tprintf("ERROR, could not buy Neuroflux governor");
-					neuroError = true;
+                    neuroError = true;
                 }
             }
             ns.tprintf(
@@ -252,16 +260,11 @@ export async function main(ns: NS): Promise<void> {
         }
     }
 
-	const redPillAug = allPurchaseableAugs.find(a => a.name === "The Red Pill");
-	if(!neuroError && redPillAug) {
-		if (ns.args[0] && buysafe) ns.purchaseAugmentation(redPillAug.faction, redPillAug.name);
-		ns.tprintf(
-			"%50s - %9s %s",
-			"The Red Pill",
-			ns.nFormat(0, "$0.000a"),
-			ns.nFormat(redPillAug.rep, "0.000a")
-		);
-	}
+    const redPillAug = allPurchaseableAugs.find((a) => a.name === "The Red Pill");
+    if (!neuroError && redPillAug) {
+        if (ns.args[0] && buysafe) ns.purchaseAugmentation(redPillAug.faction, redPillAug.name);
+        ns.tprintf("%50s - %9s %s", "The Red Pill", ns.nFormat(0, "$0.000a"), ns.nFormat(redPillAug.rep, "0.000a"));
+    }
 
     ns.tprintf("\n%50s - %9s (%s)", "Total", ns.nFormat(total, "$0.000a"), ns.nFormat(total + ngPrice, "$0.000a"));
 }

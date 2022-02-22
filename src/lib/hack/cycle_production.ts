@@ -1,5 +1,5 @@
-import { NS } from '@ns'
-import { SmartHackEnv } from 'lib/hack/smart_hack_env';
+import { NS } from "@ns";
+import { SmartHackEnv } from "lib/hack/smart_hack_env";
 
 export type CycleProduction = {
     totalThreads: number;
@@ -30,7 +30,7 @@ export function getCycleProductionLookup(ns: NS, env: SmartHackEnv): CycleProduc
     // memoize cycle production statistics indexed by cycleThreadAllowance
     const cycleProductionLookup = new Array(env.maxThreads + 1).fill(null);
 
-    let hackThreads = Math.min(env.maxThreads, Math.floor(1 / env.hackPercentPerThread));
+    let hackThreads = Math.min(env.maxThreads, Math.floor(0.95 / env.hackPercentPerThread));
 
     while (hackThreads > 0) {
         hackThreads--;

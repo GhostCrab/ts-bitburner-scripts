@@ -23,10 +23,10 @@ export async function main(ns: NS): Promise<void> {
         const fTotal = repToFavor(currentRep + storedRep);
         const fGain = fTotal - favor;
 
-        if (favor > 75) continue;
+        if (favor > 150) continue;
 
         let successStr = "";
-        if (favor + fGain > 75) {
+        if (favor + fGain > 150) {
             successStr = " (SUCCESS)";
         }
 
