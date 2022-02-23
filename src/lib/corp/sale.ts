@@ -265,7 +265,7 @@ export function getMaterialPrice(divisionName: string, city: string, matName: st
                     // 2. Substitute formula for 'markup'
                     // 3. Solve for 'sCost'
                     const numerator = markupLimit;
-                    const sqrtNumerator = mat.qty;
+                    const sqrtNumerator = mat.qty * 10;
                     const sqrtDenominator =
                         (mat.qlt + 0.001) *
                         marketFactor *

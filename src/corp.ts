@@ -115,7 +115,6 @@ async function doAgSell(ns: NS, selloff: boolean): Promise<void> {
                             if (selloff) {
                                 mat.marketTa2 = false;
                                 const sellPrice = getMaterialPrice(agDivName, city, mat.name) + "";
-                                ns.tprintf("selling for %s", sellPrice);
                                 ns.corporation.sellMaterial(agDivName, city, mat.name, "MAX", sellPrice);
                             } else {
                                 mat.marketTa2 = false;
@@ -318,7 +317,12 @@ function growOffice(ns: NS, divisionName: string, city: string, size: number) {
     // Hire and assign jobs
     let spentFunds = 0;
     const startSize = ns.corporation.getOffice(divisionName, city).size;
-	if (startSize >= size) return;
+	if (startSize >= size) {
+        while (ns.corporation.getOffice(divisionName, city).employees.length < size) {
+            ns.corporation.hireEmployee(divisionName, city);
+        }
+        return;
+    }
     let newSize = startSize;
     while (true) {
         const upgradeCost = ns.corporation.getOfficeSizeUpgradeCost(divisionName, city, 1);
@@ -465,11 +469,11 @@ export async function main(ns: NS): Promise<void> {
                 );
                 return;
             }
-
-            ns.corporation.setSmartSupply(agDivName, city, true);
-            ns.corporation.sellMaterial(agDivName, city, "Food", "MAX", "MP");
-            ns.corporation.sellMaterial(agDivName, city, "Plants", "MAX", "MP");
         }
+
+        ns.corporation.setSmartSupply(agDivName, city, true);
+        ns.corporation.sellMaterial(agDivName, city, "Food", "MAX", "MP");
+        ns.corporation.sellMaterial(agDivName, city, "Plants", "MAX", "MP");
     }
 
     // upgrade the size of the warehouses in all of the cities to 300
@@ -514,6 +518,7 @@ export async function main(ns: NS): Promise<void> {
             } else {
                 // selling - bulk sell everything at market price until all warehouses are empty
                 let countEmptyWarehouses = 0;
+                await doAgSell(ns, false);
                 for (const city of ns.corporation.getDivision(agDivName).cities) {
                     const warehouse = ns.corporation.getWarehouse(agDivName, city);
                     if (warehouse.sizeUsed < 160) countEmptyWarehouses++;
@@ -825,7 +830,7 @@ export async function main(ns: NS): Promise<void> {
         }
 
         if (officeSizeIncrease > 0) {
-            const newSize = ns.corporation.getOffice(tbDivName, tbRDCity).size + officeSizeIncrease;
+            const newSize = ns.corporation.getOffice(tbDivName, tbRDCity).size;
             growOffice(ns, tbDivName, tbRDCity, newSize);
             assignEmployees(ns, tbDivName, tbRDCity, [
                 ["Operations", newSize / 5],
