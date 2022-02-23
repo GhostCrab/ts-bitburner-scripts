@@ -3,7 +3,7 @@ import { stFormat, stdFormat, WEAKENJS, GROWJS, HACKJS } from "lib/util";
 import { getCycleProductionLookup } from "lib/hack/cycle_production";
 import { Host, generateHosts, reserveThreadsForExecution, getMaxThreads, ReservedScriptCall } from "lib/hack/host";
 
-export const TSPACER = 100;
+export const TSPACER = 400;
 
 type Cycle = {
     cycleTotal: number;
