@@ -12,6 +12,8 @@ export const GROWJS = "/lib/exec/grow.js";
 export const HACKJS = "/lib/exec/hack.js";
 export const UTILJS = "/lib/util.js";
 
+export const CITIES = ["Aevum", "Chongqing", "Sector-12", "New Tokyo", "Ishima", "Volhaven"];
+
 export function llog(ns: NS, str: string, ...args: (string | number)[]): void {
     ns.print(ns.sprintf("%8s " + str, new Date().toLocaleTimeString("it-IT"), ...args));
 }

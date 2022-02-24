@@ -1,8 +1,6 @@
 import { NS } from "@ns";
-import { cleanLogs, llog } from "lib/util";
+import { cleanLogs, llog, CITIES } from "lib/util";
 import { getMaterialPrice, Industry } from "/lib/corp/sale";
-
-const CITIES = ["Aevum", "Chongqing", "Sector-12", "New Tokyo", "Ishima", "Volhaven"];
 
 function findProp(propName: string) {
     for (const div of eval("document").querySelectorAll("div")) {
@@ -55,12 +53,11 @@ function unassignAllEmployees(divisionName: string): void {
 
 function assignEmployees(ns: NS, divisionName: string, city: string, assignments: [string, number | string][]): void {
     const playerProp = findProp("player");
-    const agDivName = "Agriculture";
-
-    if (playerProp?.corporation?.divisions) {
-        const agDiv: Industry = playerProp.corporation.divisions.find((a: { type: string }) => a.type === agDivName);
-        if (agDiv) {
-            const office = agDiv.offices[city];
+    
+	if (playerProp?.corporation?.divisions) {
+        const division: Industry = playerProp.corporation.divisions.find((a: { type: string }) => a.type === divisionName);
+        if (division) {
+            const office = division.offices[city];
             if (office) {
                 for (const employee of office.employees) {
                     employee.pos = "Unassigned";
@@ -68,7 +65,7 @@ function assignEmployees(ns: NS, divisionName: string, city: string, assignments
                 for (const assignment of assignments) {
                     const employeeCount = office.employees.length;
                     const job = assignment[0];
-                    const num: number = eval((assignment[1] + "").replace(/ec/g, employeeCount + ""));
+                    const num: number = Math.floor(eval((assignment[1] + "").replace(/ec/g, employeeCount + "")));
                     office.setEmployeeToJob(job, num);
                 }
             }
@@ -941,7 +938,7 @@ export async function main(ns: NS): Promise<void> {
                 (offer.shares / 1000000000) * 100
             );
 			ns.corporation.goPublic(0);
-			ns.corporation.issueDividends(5);
+			ns.corporation.issueDividends(.05);
         }
 
         // Buy Research Upgrades -- buy after high priority researches, and only if purchase cost is < 5% of total research

@@ -7,7 +7,7 @@ import { NS } from "@ns";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data: string, args: string): string[] {
-    return ["sec", "money", "cct", "gym", "research"]; // Autocomplete 3 specific strings.
+    return ["sec", "money", "cct", "gym", "research", "bladeburner"]; // Autocomplete 3 specific strings.
 }
 
 export async function main(ns: NS): Promise<void> {
@@ -42,9 +42,15 @@ export async function main(ns: NS): Promise<void> {
     const target = ns.args[1]?.toString();
 
     while (true) {
-        const studyCost = ns.hacknet.hashCost(buy);
+		if(ns.args[0] === "bladeburner") {
+			if (ns.hacknet.hashCost("Exchange for Bladeburner Rank") <= ns.hacknet.hashCost("Exchange for Bladeburner SP"))
+				buy = "Exchange for Bladeburner Rank";
+			else
+				buy = "Exchange for Bladeburner SP";
+		}
+        const hashCost = ns.hacknet.hashCost(buy);
 
-        while (ns.hacknet.hashCapacity() < studyCost) {
+        while (ns.hacknet.hashCapacity() < hashCost) {
             while (ns.hacknet.numHashes() > ns.hacknet.hashCost("Sell for Money"))
                 ns.hacknet.spendHashes("Sell for Money");
 
@@ -67,7 +73,7 @@ export async function main(ns: NS): Promise<void> {
             await ns.sleep(1000);
         }
 
-        while (ns.hacknet.numHashes() < studyCost) await ns.sleep(1000);
+        while (ns.hacknet.numHashes() < hashCost) await ns.sleep(1000);
 
         ns.hacknet.spendHashes(buy, target);
 
