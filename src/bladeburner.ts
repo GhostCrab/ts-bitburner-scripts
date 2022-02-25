@@ -1,6 +1,10 @@
 import { NS } from "@ns";
 import { stFormat, CITIES, llog, cleanLogs } from "lib/util";
 
+function lerp(start: number, end: number, dist: number): number {
+    return start + (end - start) * dist;
+}
+
 function checkLevel(obj: IMapNum<number>, level: number) {
     return Object.prototype.hasOwnProperty.call(obj, level);
 }
@@ -35,10 +39,44 @@ interface IMapNum<T> {
     [key: number]: T;
 }
 
+interface IMap<T> {
+    [key: string]: T;
+}
+
 interface LevelInfo {
-    repPerMs: number;
+    rankPerMs: number;
     level: number;
-    avgChance: number;
+    chance: number;
+}
+
+export interface IActionIdentifier {
+    name: string;
+    type: number;
+}
+
+export interface ISuccessChanceParams {
+    est: boolean;
+}
+
+export interface IAction {
+    level: number;
+    rewardFac: number;
+    rankGain: number;
+    getSuccessChance(inst: IBladeburner, params: ISuccessChanceParams): number;
+}
+
+export class City {
+	name = "";
+	pop = 0;
+	popEst = 0;
+	comms = 0;
+	chaos = 0;
+}
+
+export interface IBladeburner {
+	cities: IMap<City>
+    getActionIdFromTypeAndName(type: string, name: string): IActionIdentifier | null;
+    getActionObject(actionId: IActionIdentifier): IAction | null;
 }
 
 class Action {
@@ -49,16 +87,22 @@ class Action {
     countRemaining = 0;
     successChanceMin: IMapNum<number> = {};
     successChanceMax: IMapNum<number> = {};
+    successChance: IMapNum<number> = {};
     maxLevel = 1;
-    repGain: IMapNum<number> = {};
+    rankGain: IMapNum<number> = {};
     actionTime: IMapNum<number> = {};
-    best: LevelInfo = { repPerMs: 0, level: 1, avgChance: 0 };
+    best: LevelInfo = { rankPerMs: 0, level: 1, chance: 0 };
     boRank = -1;
+    rawAction: IAction | null = null;
 
     constructor(ns: NS, type: string, name: string, city: string) {
         this.type = type;
         this.name = name;
         this.city = city;
+
+        const bb: IBladeburner = findProp("player").bladeburner;
+        const rawActionId = bb.getActionIdFromTypeAndName(this.type, this.name);
+        if (rawActionId) this.rawAction = bb.getActionObject(rawActionId);
 
         this.refresh(ns);
     }
@@ -80,44 +124,60 @@ class Action {
             );
             this.successChanceMin[level] = successChanceMin;
             this.successChanceMax[level] = successChanceMax;
-            this.repGain[level] = ns.bladeburner.getActionRepGain(this.type, this.name, level);
             this.actionTime[level] = ns.bladeburner.getActionTime(this.type, this.name);
+
+            // rank gain
+            this.rankGain[level] = 0;
+            if (this.rawAction && this.rawAction.rankGain) {
+                const rewardMultiplier = Math.pow(this.rawAction.rewardFac, level - 1);
+                this.rankGain[level] =
+                    this.rawAction.rankGain * rewardMultiplier * ns.getBitNodeMultipliers().BladeburnerRank;
+            }
         }
     }
 
     avgChance(level: number): number {
         if (!checkLevel(this.successChanceMin, level) || !checkLevel(this.successChanceMax, level)) return 0;
 
-        return this.successChanceMin[level] + (this.successChanceMax[level] - this.successChanceMin[level]) / 2;
+        return lerp(this.successChanceMin[level], this.successChanceMax[level], 0.25);
     }
 
-    repPerMs(level: number): number {
-        if (!checkLevel(this.repGain, level) || !checkLevel(this.actionTime, level)) return 0;
+    chance(level: number): number {
+        if (this.rawAction) {
+            this.rawAction.level = level;
+            return this.rawAction.getSuccessChance(findProp("player").bladeburner, { est: false });
+        }
+
+        return this.avgChance(level);
+    }
+
+    rankPerMs(level: number): number {
+        if (!checkLevel(this.rankGain, level) || !checkLevel(this.actionTime, level)) return 0;
 
         if (this.actionTime[level] === 0) return 0;
 
-        return this.repGain[level] / this.actionTime[level];
+        return this.rankGain[level] / this.actionTime[level];
     }
 
-    calcBestRepPerMs(ns: NS, successThreshold: number): LevelInfo {
+    calcBestRankPerMs(ns: NS, successThreshold: number): LevelInfo {
         this.refresh(ns);
         this.best = {
-            repPerMs: 0,
+            rankPerMs: 0,
             level: 1,
-            avgChance: 0,
+            chance: 0,
         };
 
         if (this.countRemaining <= 0) return this.best;
         if (ns.bladeburner.getRank() < this.boRank) return this.best;
 
         for (let level = 1; level <= this.maxLevel; level++) {
-            const repPerMs = this.repPerMs(level);
-            const avgChance = this.avgChance(level);
-            if (repPerMs > this.best.repPerMs && avgChance > successThreshold) {
+            const rankPerMs = this.rankPerMs(level);
+            const chance = this.chance(level);
+            if (rankPerMs > this.best.rankPerMs && chance > successThreshold) {
                 this.best = {
-                    repPerMs: repPerMs,
+                    rankPerMs: rankPerMs,
                     level: level,
-                    avgChance: avgChance,
+                    chance: chance,
                 };
             }
         }
@@ -127,14 +187,15 @@ class Action {
 
     runBest(ns: NS): number {
         const time = this.bestTime();
-        llog(ns,
-            "Running %s:%s:%s:%d for %s (%s Rep/s)",
+        llog(
+            ns,
+            "Running %s:%s:%s:%d for %s (%s Rank/s)",
             this.city,
             this.type,
             this.name,
             this.best.level,
             stFormat(ns, time, false, false),
-            ns.nFormat(this.best.repPerMs * 1000, "0.000a")
+            ns.nFormat(this.best.rankPerMs * 1000, "0.000a")
         );
         ns.bladeburner.switchCity(this.city);
         ns.bladeburner.setActionLevel(this.type, this.name, this.best.level);
@@ -158,14 +219,17 @@ class Action {
         str += ns.sprintf("  Autolevel: %s\n", this.autoLevel ? "ON" : "OFF");
 
         for (let level = 1; level <= this.maxLevel; level++) {
+            const ranksStr = ns.nFormat(this.rankPerMs(level) * 1000, "0.000a");
             str += ns.sprintf(
-                "  Level %d: %d - %d, rep +%.3f, time %s %s\n",
+                "  Level %d: %d - %d (%d), rank +%.3f, time %s, rank/s %s %s\n",
                 level,
                 this.successChanceMin[level] * 100,
                 this.successChanceMax[level] * 100,
-                this.repGain[level],
+                this.chance(level) * 100,
+                this.rankGain[level],
                 stFormat(ns, this.actionTime[level], false, false),
-                this.best.level === level ? `(BEST ${ns.nFormat(this.best.repPerMs * 1000, "0.000a")} Rep/s)` : ""
+                ranksStr,
+                this.best.level === level ? `(BEST ${ranksStr} Rank/s)` : ""
             );
         }
 
@@ -173,20 +237,21 @@ class Action {
     }
 }
 
-function getRecoveryAction(ns: NS): Action {
-    const p = findProp("player");
+function getRecoveryAction(ns: NS): [Action, number] {
+    const bb: IBladeburner = findProp("player").bladeburner;
     let bestCity = "Sector-12";
     let bestDiffRatio = 0;
 
-    for (const [city, data] of Object.entries(p.bladeburner.cities)) {
-        // llog(ns,
-        //     "%10s: %8s / %8s diff: %8s (%.2f)",
-        //     city,
-        //     ns.nFormat(data.pop, "0.000a"),
-        //     ns.nFormat(data.popEst, "0.000a"),
-        //     ns.nFormat(Math.abs(data.pop - data.popEst), "0.000a"),
-        //     Math.abs((data.pop - data.popEst) / data.pop)
-        // );
+    for (const [city, data] of Object.entries(bb.cities)) {
+        llog(
+            ns,
+            "%10s: %8s / %8s diff: %8s (%.2f)",
+            city,
+            ns.nFormat(data.pop, "0.000a"),
+            ns.nFormat(data.popEst, "0.000a"),
+            ns.nFormat(Math.abs(data.pop - data.popEst), "0.000a"),
+            Math.abs((data.pop - data.popEst) / data.pop)
+        );
 
         const diffRatio = Math.abs((data.pop - data.popEst) / data.pop);
         if (diffRatio > bestDiffRatio) {
@@ -195,14 +260,13 @@ function getRecoveryAction(ns: NS): Action {
         }
     }
 
-	if (bestDiffRatio < 0.001)
-		return new Action(ns, "General", "Training", "Sector-12");
+    if (bestDiffRatio < 0.001) return [new Action(ns, "General", "Training", "Sector-12"), 0];
 
-    return new Action(ns, "General", "Field Analysis", bestCity);
+    return [new Action(ns, "General", "Field Analysis", bestCity), bestDiffRatio];
 }
 
 export async function main(ns: NS): Promise<void> {
-	cleanLogs(ns);
+    cleanLogs(ns);
 
     if (!joinBladeburner()) return;
 
@@ -213,7 +277,7 @@ export async function main(ns: NS): Promise<void> {
         }
 
         for (const actionName of ns.bladeburner.getContractNames()) {
-            allActions.push(new Action(ns, "Contracts", actionName, city));
+            allActions.push(new Action(ns, "Contract", actionName, city));
         }
 
         for (const actionName of ns.bladeburner.getGeneralActionNames()) {
@@ -221,7 +285,7 @@ export async function main(ns: NS): Promise<void> {
         }
 
         for (const actionName of ns.bladeburner.getOperationNames()) {
-            allActions.push(new Action(ns, "Operations", actionName, city));
+            allActions.push(new Action(ns, "Operation", actionName, city));
         }
     }
 
@@ -230,21 +294,22 @@ export async function main(ns: NS): Promise<void> {
         const currentTime = new Date().getTime();
 
         if (currentTime > actionEndTime) {
+            const [recoveryAction, diffRatio] = getRecoveryAction(ns);
             const [curStam, maxStam] = ns.bladeburner.getStamina();
-            if (curStam < maxStam / 2) {
-                actionEndTime = currentTime + getRecoveryAction(ns).runBest(ns) + 50;
+            if (curStam < maxStam / 2 || diffRatio > 0.1) {
+                actionEndTime = currentTime + recoveryAction.runBest(ns) + 50;
             } else {
-                let threshold = 0.75;
+                let threshold = 0.85;
                 let runnableActions: Action[] = [];
                 while (runnableActions.length === 0) {
                     threshold -= 0.05;
-                    for (const action of allActions) action.calcBestRepPerMs(ns, threshold);
+                    for (const action of allActions) action.calcBestRankPerMs(ns, threshold);
                     runnableActions = allActions
-                        .filter((a) => a.best.repPerMs > 0)
+                        .filter((a) => a.best.rankPerMs > 0)
                         .sort((a, b) =>
-                            b.best.repPerMs === a.best.repPerMs
-                                ? b.best.avgChance - a.best.avgChance
-                                : b.best.repPerMs - a.best.repPerMs
+                            b.best.rankPerMs === a.best.rankPerMs
+                                ? b.best.chance - a.best.chance
+                                : b.best.rankPerMs - a.best.rankPerMs
                         );
                 }
 
@@ -253,28 +318,27 @@ export async function main(ns: NS): Promise<void> {
                 actionEndTime = currentTime + runnableActions[0].runBest(ns) + 50;
             }
 
-			// do skill check
-			const skillNames = [
-				"Blade's Intuition",
-				"Cloak",
-				"Short-Circuit",
-				"Digital Observer",
-				"Tracer",
-				"Overclock",
-				"Reaper"
-			]
+            // do skill check
+            const skillNames = [
+                "Blade's Intuition",
+                "Cloak",
+                "Short-Circuit",
+                "Digital Observer",
+                "Tracer",
+                "Overclock",
+                "Reaper",
+            ];
 
-			for(const skillName of skillNames) {
-				if(skillName === "Overclock" && ns.bladeburner.getSkillLevel(skillName) >= 90)
-					continue;
+            for (const skillName of skillNames) {
+                if (skillName === "Overclock" && ns.bladeburner.getSkillLevel(skillName) >= 90) continue;
 
-				const skillPoints = ns.bladeburner.getSkillPoints();
-				const skillCost = ns.bladeburner.getSkillUpgradeCost(skillName);
-				if (skillCost <= skillPoints) {
-					llog(ns, "Upgrading %s for %d skill points", skillName, skillCost)
-					ns.bladeburner.upgradeSkill(skillName);
-				}
-			}
+                const skillPoints = ns.bladeburner.getSkillPoints();
+                const skillCost = ns.bladeburner.getSkillUpgradeCost(skillName);
+                if (skillCost <= skillPoints) {
+                    llog(ns, "Upgrading %s for %d skill points", skillName, skillCost);
+                    ns.bladeburner.upgradeSkill(skillName);
+                }
+            }
         }
         await ns.sleep(100);
 

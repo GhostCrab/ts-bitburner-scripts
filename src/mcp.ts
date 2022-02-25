@@ -213,14 +213,19 @@ export async function main(ns: NS): Promise<void> {
     }
 
     // see how many Neuroflux Governors we can buy
-    const topFactionForNeuroflux =
-        sortedFactions.length > 0
-            ? ns.gang.inGang() && ns.gang.getGangInformation().faction === sortedFactions[0]
-                ? sortedFactions.length > 1
-                    ? sortedFactions[1]
-                    : ""
-                : sortedFactions[0]
-            : "";
+	let neurofluxFactionIdx = 0;
+	while (neurofluxFactionIdx < sortedFactions.length) {
+		if(ns.gang.inGang() && ns.gang.getGangInformation().faction === sortedFactions[neurofluxFactionIdx]) {
+			neurofluxFactionIdx++
+		} else if(sortedFactions[neurofluxFactionIdx] === "Bladeburners") {
+			neurofluxFactionIdx++
+		} else {
+			break;
+		}
+	}
+
+
+    const topFactionForNeuroflux = neurofluxFactionIdx >= sortedFactions.length ? "" : sortedFactions[neurofluxFactionIdx];
     const topFactionRep =
         topFactionForNeuroflux !== ""
             ? (ns.getPlayer().currentWorkFactionName === topFactionForNeuroflux ? ns.getPlayer().workRepGained : 0) +
