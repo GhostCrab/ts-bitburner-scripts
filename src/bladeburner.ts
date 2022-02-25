@@ -296,7 +296,7 @@ export async function main(ns: NS): Promise<void> {
         if (currentTime > actionEndTime) {
             const [recoveryAction, diffRatio] = getRecoveryAction(ns);
             const [curStam, maxStam] = ns.bladeburner.getStamina();
-            if (curStam < maxStam / 2 || diffRatio > 0.1) {
+            if (curStam < maxStam / 2) {
                 actionEndTime = currentTime + recoveryAction.runBest(ns) + 50;
             } else {
                 let threshold = 0.85;
@@ -320,13 +320,13 @@ export async function main(ns: NS): Promise<void> {
 
             // do skill check
             const skillNames = [
+                "Overclock",
                 "Blade's Intuition",
                 "Cloak",
                 "Short-Circuit",
                 "Digital Observer",
                 "Tracer",
-                "Overclock",
-                "Reaper",
+                "Reaper"
             ];
 
             for (const skillName of skillNames) {

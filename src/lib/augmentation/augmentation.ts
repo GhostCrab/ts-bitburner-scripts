@@ -69,20 +69,20 @@ export class Augmentation {
 
     isHackUseful(): boolean {
 		if (this.name === "Neuroflux Governor") return false;
-        return true;
-        if (this.stats.company_rep_mult) return true;
-        if (this.stats.faction_rep_mult) return true;
+        //return true;
+        // if (this.stats.company_rep_mult) return true;
+        // if (this.stats.faction_rep_mult) return true;
         if (this.stats.hacking_chance_mult) return true;
         if (this.stats.hacking_exp_mult) return true;
         if (this.stats.hacking_grow_mult) return true;
         if (this.stats.hacking_money_mult) return true;
         if (this.stats.hacking_mult) return true;
         if (this.stats.hacking_speed_mult) return true;
-        if (this.stats.hacknet_node_core_cost_mult) return true;
-        if (this.stats.hacknet_node_level_cost_mult) return true;
-        if (this.stats.hacknet_node_money_mult) return true;
-        if (this.stats.hacknet_node_purchase_cost_mult) return true;
-        if (this.stats.hacknet_node_ram_cost_mult) return true;
+        // if (this.stats.hacknet_node_core_cost_mult) return true;
+        // if (this.stats.hacknet_node_level_cost_mult) return true;
+        // if (this.stats.hacknet_node_money_mult) return true;
+        // if (this.stats.hacknet_node_purchase_cost_mult) return true;
+        // if (this.stats.hacknet_node_ram_cost_mult) return true;
         if (
             this.name === "BitRunners Neurolink" ||
             this.name === "CashRoot Starter Kit" ||
