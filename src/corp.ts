@@ -110,8 +110,9 @@ async function doAgSell(ns: NS, selloff: boolean): Promise<void> {
 
                         if (mat.name === "Food") {
                             if (selloff) {
-                                mat.marketTa2 = false;
+                                mat.marketTa2 = true;
                                 const sellPrice = getMaterialPrice(agDivName, city, mat.name) + "";
+                                ns.tprintf("selling %s:%s:%s", city, mat.name, sellPrice)
                                 ns.corporation.sellMaterial(agDivName, city, mat.name, "MAX", sellPrice);
                             } else {
                                 mat.marketTa2 = false;
