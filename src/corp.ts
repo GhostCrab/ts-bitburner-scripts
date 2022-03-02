@@ -110,9 +110,9 @@ async function doAgSell(ns: NS, selloff: boolean): Promise<void> {
 
                         if (mat.name === "Food") {
                             if (selloff) {
-                                mat.marketTa2 = true;
+                                mat.marketTa2 = false;
                                 const sellPrice = getMaterialPrice(agDivName, city, mat.name) + "";
-                                ns.tprintf("selling %s:%s:%s", city, mat.name, sellPrice)
+                                //ns.tprintf("selling %s:%s:%s", city, mat.name, sellPrice)
                                 ns.corporation.sellMaterial(agDivName, city, mat.name, "MAX", sellPrice);
                             } else {
                                 mat.marketTa2 = false;
@@ -516,7 +516,6 @@ export async function main(ns: NS): Promise<void> {
             } else {
                 // selling - bulk sell everything at market price until all warehouses are empty
                 let countEmptyWarehouses = 0;
-                await doAgSell(ns, false);
                 for (const city of ns.corporation.getDivision(agDivName).cities) {
                     const warehouse = ns.corporation.getWarehouse(agDivName, city);
                     if (warehouse.sizeUsed < 160) countEmptyWarehouses++;
@@ -539,8 +538,8 @@ export async function main(ns: NS): Promise<void> {
                 ns.nFormat(ns.corporation.getCorporation().revenue, "(0.000a)")
             );
 
-            // only take offers over $800b
-            if (offer.funds > 800000000000) {
+            // only take offers over $220b
+            if (offer.funds > 220000000000) {
                 ns.corporation.acceptInvestmentOffer();
                 llog(
                     ns,
@@ -626,8 +625,8 @@ export async function main(ns: NS): Promise<void> {
                 ns.nFormat(ns.corporation.getCorporation().revenue, "(0.000a)")
             );
 
-            //only take offers over $10t
-            if (offer.funds > 10000000000000) {
+            //only take offers over $4t
+            if (offer.funds > 4000000000000) {
                 ns.corporation.acceptInvestmentOffer();
                 llog(
                     ns,
@@ -828,14 +827,17 @@ export async function main(ns: NS): Promise<void> {
         }
 
         if (officeSizeIncrease > 0) {
-            const newSize = ns.corporation.getOffice(tbDivName, tbRDCity).size;
-            growOffice(ns, tbDivName, tbRDCity, newSize);
+            const officeSize = ns.corporation.getOffice(tbDivName, tbRDCity).size;
+            while (ns.corporation.getOffice(tbDivName, tbRDCity).employees.length < officeSize) {
+                ns.corporation.hireEmployee(tbDivName, tbRDCity);
+            }
+
             assignEmployees(ns, tbDivName, tbRDCity, [
-                ["Operations", newSize / 5],
-                ["Engineer", newSize / 5],
-                ["Business", newSize / 5],
-                ["Management", newSize / 5],
-                ["Research & Development", newSize / 5],
+                ["Operations", officeSize / 5],
+                ["Engineer", officeSize / 5],
+                ["Business", officeSize / 5],
+                ["Management", officeSize / 5],
+                ["Research & Development", officeSize / 5],
             ]);
         }
 

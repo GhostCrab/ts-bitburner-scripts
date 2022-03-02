@@ -66,15 +66,15 @@ export interface IAction {
 }
 
 export class City {
-	name = "";
-	pop = 0;
-	popEst = 0;
-	comms = 0;
-	chaos = 0;
+    name = "";
+    pop = 0;
+    popEst = 0;
+    comms = 0;
+    chaos = 0;
 }
 
 export interface IBladeburner {
-	cities: IMap<City>
+    cities: IMap<City>;
     getActionIdFromTypeAndName(type: string, name: string): IActionIdentifier | null;
     getActionObject(actionId: IActionIdentifier): IAction | null;
 }
@@ -294,7 +294,8 @@ export async function main(ns: NS): Promise<void> {
         const currentTime = new Date().getTime();
 
         if (currentTime > actionEndTime) {
-            const [recoveryAction, diffRatio] = getRecoveryAction(ns);
+            // prettier-ignore
+            const [recoveryAction, /*diffRatio*/] = getRecoveryAction(ns);
             const [curStam, maxStam] = ns.bladeburner.getStamina();
             if (curStam < maxStam / 2) {
                 actionEndTime = currentTime + recoveryAction.runBest(ns) + 50;
@@ -326,7 +327,7 @@ export async function main(ns: NS): Promise<void> {
                 "Short-Circuit",
                 "Digital Observer",
                 "Tracer",
-                "Reaper"
+                "Reaper",
             ];
 
             for (const skillName of skillNames) {

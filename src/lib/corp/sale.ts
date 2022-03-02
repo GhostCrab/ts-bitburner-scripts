@@ -87,13 +87,13 @@ export interface OfficeSpace {
     employees: Employee[];
     employeeProd: { [key: string]: number };
 
-	atCapacity(): boolean;
-	process(marketCycles: number, corporation: ICorporation, industry: Industry): number;
-	calculateEmployeeProductivity(corporation: ICorporation, industry: Industry): void;
-	hireRandomEmployee(): Employee | undefined;
-	assignEmployeeToJob(job: string): boolean;
-	unassignEmployeeFromJob(job: string): boolean;
-	setEmployeeToJob(job: string, amount: number): boolean;
+    atCapacity(): boolean;
+    process(marketCycles: number, corporation: ICorporation, industry: Industry): number;
+    calculateEmployeeProductivity(corporation: ICorporation, industry: Industry): void;
+    hireRandomEmployee(): Employee | undefined;
+    assignEmployeeToJob(job: string): boolean;
+    unassignEmployeeFromJob(job: string): boolean;
+    setEmployeeToJob(job: string, amount: number): boolean;
 }
 
 export interface Warehouse {
@@ -242,11 +242,10 @@ function findProp(propName: string) {
 
 export function getMaterialPrice(divisionName: string, city: string, matName: string): number {
     const playerProp = findProp("player");
-    const agDivName = "Agriculture";
 
     if (playerProp?.corporation?.divisions) {
         const corporation: ICorporation = playerProp.corporation;
-        const agDiv: Industry = playerProp.corporation.divisions.find((a: { type: string }) => a.type === agDivName);
+        const agDiv: Industry = playerProp.corporation.divisions.find((a: { type: string }) => a.type === divisionName);
 
         if (agDiv) {
             const warehouse = agDiv.warehouses[city];
@@ -258,37 +257,16 @@ export function getMaterialPrice(divisionName: string, city: string, matName: st
                     const advertisingFactor = agDiv.getAdvertisingFactors()[0]; //Awareness + popularity
                     const marketFactor = agDiv.getMarketFactor(mat); //Competition + demand
 
-                    const markupLimit = mat.getMarkupLimit();
-
-                    // Reverse engineer the 'maxSell' formula
-                    // 1. Set 'maxSell' = prod
-                    // 2. Substitute formula for 'markup'
-                    // 3. Solve for 'sCost'
-                    const numerator = markupLimit;
-                    const sqrtNumerator = mat.qty * 10;
-                    const sqrtDenominator =
+                    return (
                         (mat.qlt + 0.001) *
                         marketFactor *
                         businessFactor *
                         corporation.getSalesMultiplier() *
                         advertisingFactor *
-                        agDiv.getSalesMultiplier();
-                    const denominator = Math.sqrt(sqrtNumerator / sqrtDenominator);
-                    let optimalPrice;
-                    if (sqrtDenominator === 0 || denominator === 0) {
-                        if (sqrtNumerator === 0) {
-                            optimalPrice = 0; // No production
-                        } else {
-                            optimalPrice = mat.bCost + markupLimit;
-                            console.warn(
-                                `In Corporation, found illegal 0s when trying to calculate MarketTA2 sale cost`
-                            );
-                        }
-                    } else {
-                        optimalPrice = numerator / denominator + mat.bCost;
-                    }
-
-					return optimalPrice;
+                        agDiv.getSalesMultiplier() *
+                        10 *
+                        (mat.bCost / mat.qty)
+                    );
                 }
             }
         }

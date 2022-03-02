@@ -1,7 +1,14 @@
 import { NS, Server, Player } from "@ns";
 import { stFormat, stdFormat, WEAKENJS, GROWJS, HACKJS } from "lib/util";
 import { getCycleProductionLookup } from "lib/hack/cycle_production";
-import { Host, generateHosts, reserveThreadsForExecution, getMaxThreads, ReservedScriptCall } from "lib/hack/host";
+import {
+    Host,
+    generateHosts,
+    reserveThreadsForExecution,
+    getMaxThreads,
+    ReservedScriptCall,
+    clearOperationsByBatchId,
+} from "lib/hack/host";
 
 export const TSPACER = 400;
 
@@ -195,41 +202,49 @@ export class SmartHackEnv {
         return Math.max(ns.getServerMoneyAvailable(this.targetname), 1);
     }
 
-    getWeakenTime(ns: NS): number {
-        if (this.simEnabled) return Math.ceil(ns.formulas.hacking.weakenTime(this.simTarget, this.simPlayer));
+    getWeakenTime(ns: NS, hackOverride?: number): number {
+        if (this.simEnabled)
+            return Math.ceil(ns.formulas.hacking.weakenTime(this.simTarget, this.simPlayer, hackOverride));
 
-        return Math.ceil(ns.getWeakenTime(this.targetname));
+        return Math.ceil(ns.getWeakenTime(this.targetname, hackOverride));
     }
 
-    getGrowTime(ns: NS): number {
-        if (this.simEnabled) return Math.ceil(ns.formulas.hacking.growTime(this.simTarget, this.simPlayer));
-
-        return Math.ceil(ns.getGrowTime(this.targetname));
+    getWeakenLevelForTime(ns: NS, ms: number): number {
+        if (this.simEnabled) return ns.formulas.hacking.weakenLevelForTime(this.simTarget, ns.getPlayer(), ms);
+        return ns.formulas.hacking.weakenLevelForTime(ns.getServer(this.targetname), ns.getPlayer(), ms);
     }
 
-    getHackTime(ns: NS): number {
-        if (this.simEnabled) return Math.ceil(ns.formulas.hacking.hackTime(this.simTarget, this.simPlayer));
+    getGrowTime(ns: NS, hackOverride?: number): number {
+        if (this.simEnabled)
+            return Math.ceil(ns.formulas.hacking.growTime(this.simTarget, this.simPlayer, hackOverride));
 
-        return Math.ceil(ns.getHackTime(this.targetname));
+        return Math.ceil(ns.getGrowTime(this.targetname, hackOverride));
     }
 
-    hackAnalyze(ns: NS, assumeMinSec = false): number {
+    getHackTime(ns: NS, hackOverride?: number): number {
+        if (this.simEnabled)
+            return Math.ceil(ns.formulas.hacking.hackTime(this.simTarget, this.simPlayer, hackOverride));
+
+        return Math.ceil(ns.getHackTime(this.targetname, hackOverride));
+    }
+
+    hackAnalyze(ns: NS, assumeMinSec = false, hackOverride?: number): number {
         if (this.simEnabled) {
             if (assumeMinSec) {
                 const simTarget = Object.assign({}, this.simTarget);
                 simTarget.hackDifficulty = simTarget.minDifficulty;
-                return ns.formulas.hacking.hackPercent(simTarget, this.simPlayer);
+                return ns.formulas.hacking.hackPercent(simTarget, this.simPlayer, hackOverride);
             }
-            return ns.formulas.hacking.hackPercent(this.simTarget, this.simPlayer);
+            return ns.formulas.hacking.hackPercent(this.simTarget, this.simPlayer, hackOverride);
         }
 
         if (assumeMinSec) {
             const simTarget = ns.getServer(this.targetname);
             simTarget.hackDifficulty = simTarget.minDifficulty;
-            return ns.formulas.hacking.hackPercent(simTarget, ns.getPlayer());
+            return ns.formulas.hacking.hackPercent(simTarget, ns.getPlayer(), hackOverride);
         }
 
-        return ns.hackAnalyze(this.targetname);
+        return ns.hackAnalyze(this.targetname, hackOverride);
     }
 
     numCycleForGrowth(ns: NS, server: Server, growth: number, player: Player, cores = 1): number {
@@ -275,7 +290,7 @@ export class SmartHackEnv {
                 }
             }
         }
-        return Math.ceil(threads * 1.1);
+        return Math.ceil(threads);
     }
 
     /** @param {import(".").NS } ns */
@@ -284,6 +299,14 @@ export class SmartHackEnv {
             // process in progress, wait for next refresh to update
             await ns.sleep(1000);
             return true;
+        }
+
+        // Player State
+        let playerHackLvlTiming = ns.getPlayer().hacking;
+        const playerHackLvlEffect = ns.getPlayer().hacking;
+
+        if (this.getWeakenTime(ns, playerHackLvlTiming) < 120000) {
+            playerHackLvlTiming = Math.max(this.getWeakenLevelForTime(ns, 120000), 1);
         }
 
         // Host state
@@ -297,18 +320,18 @@ export class SmartHackEnv {
         this.security = this.getServerSecurityLevel(ns);
 
         // Hack Info
-        this.hackTime = this.getHackTime(ns);
-        this.hackPercentPerThread = this.hackAnalyze(ns, true);
+        this.hackTime = this.getHackTime(ns, playerHackLvlTiming);
+        this.hackPercentPerThread = this.hackAnalyze(ns, true, playerHackLvlEffect);
 
         this.hackThreads = 1 / this.hackPercentPerThread - 1;
         this.hackTotal = this.hackPercentPerThread * this.hackThreads * this.money;
         this.hackSecIncrease = ns.hackAnalyzeSecurity(this.hackThreads);
 
         // Grow Info
-        this.growTime = this.getGrowTime(ns);
+        this.growTime = this.getGrowTime(ns, playerHackLvlTiming);
 
         // Weaken Info
-        this.weakenTime = this.getWeakenTime(ns);
+        this.weakenTime = this.getWeakenTime(ns, playerHackLvlTiming);
         this.weakenAmountPerThread = 0.05 * ns.getBitNodeMultipliers().ServerWeakenRate * this.cores;
 
         // Cycle Info
@@ -335,7 +358,7 @@ export class SmartHackEnv {
         }
 
         // memoize cycle production statistics indexed by cycleThreadAllowance
-        const cycleProductionLookup = getCycleProductionLookup(ns, this);
+        const cycleProductionLookup = getCycleProductionLookup(ns, this, playerHackLvlEffect);
 
         // Get all cycle combination production statistics
         let allCycles: Cycle[] = [];
@@ -430,14 +453,17 @@ export class SmartHackEnv {
         const growOffsetTime = this.weakenTime + this.tspacer - this.growTime;
         const hackOffsetTime = this.weakenTime - this.hackTime - this.tspacer;
 
+        let primaryThreadReserved = true;
         if (primaryThreadsTotal > 0) {
             if (primaryGrowThreads > 0)
-                reserveThreadsForExecution(
+                primaryThreadReserved &= reserveThreadsForExecution(
                     ns,
                     GROWJS,
                     this.hosts,
                     primaryGrowThreads,
                     this.targetname,
+                    playerHackLvlTiming,
+                    playerHackLvlEffect,
                     0,
                     growOffsetTime,
                     this.growTime,
@@ -445,71 +471,91 @@ export class SmartHackEnv {
                     this.writeFile
                 );
             if (primaryWeakenThreads > 0)
-                reserveThreadsForExecution(
+                primaryThreadReserved &= reserveThreadsForExecution(
                     ns,
                     WEAKENJS,
                     this.hosts,
                     primaryWeakenThreads,
                     this.targetname,
+                    playerHackLvlTiming,
+                    playerHackLvlEffect,
                     0,
                     weakenGrowOffsetTime,
                     this.weakenTime,
                     "1PW",
                     this.writeFile
                 );
+
+            if (!primaryThreadReserved) {
+                throw "ERROR: Unable to reserve primary threads";
+            }
         }
 
         for (let i = 0; i < this.cycleTotal; i++) {
             if (primaryThreadsTotal > 0 && i === 0) continue;
             const cycleOffsetTime = i * this.cycleSpacer;
-            reserveThreadsForExecution(
+            let threadsReserved = true;
+            threadsReserved &= reserveThreadsForExecution(
                 ns,
                 HACKJS,
                 this.hosts,
                 this.hackThreads,
                 this.targetname,
+                playerHackLvlTiming,
+                playerHackLvlEffect,
                 i,
                 cycleOffsetTime + hackOffsetTime,
                 this.hackTime,
                 "0H",
                 this.writeFile
             );
-            reserveThreadsForExecution(
+            threadsReserved &= reserveThreadsForExecution(
                 ns,
                 GROWJS,
                 this.hosts,
                 this.growThreads,
                 this.targetname,
+                playerHackLvlTiming,
+                playerHackLvlEffect,
                 i,
                 cycleOffsetTime + growOffsetTime,
                 this.growTime,
                 "2G",
                 this.writeFile
             );
-            reserveThreadsForExecution(
+            threadsReserved &= reserveThreadsForExecution(
                 ns,
                 WEAKENJS,
                 this.hosts,
                 this.weakenHackThreads,
                 this.targetname,
+                playerHackLvlTiming,
+                playerHackLvlEffect,
                 i,
                 cycleOffsetTime,
                 this.weakenTime,
                 "1WH",
                 this.writeFile
             );
-            reserveThreadsForExecution(
+            threadsReserved &= reserveThreadsForExecution(
                 ns,
                 WEAKENJS,
                 this.hosts,
                 this.weakenGrowThreads,
                 this.targetname,
+                playerHackLvlTiming,
+                playerHackLvlEffect,
                 i,
                 cycleOffsetTime + weakenGrowOffsetTime,
                 this.weakenTime,
                 "3WG",
                 this.writeFile
             );
+
+            if (!threadsReserved) {
+                ns.tprintf("Warning: Unable to Reserve batch %d", i);
+                clearOperationsByBatchId(this.hosts, i);
+            }
         }
 
         const port = ns.getPortHandle(1);
@@ -630,9 +676,9 @@ export class SmartHackEnv {
             }
 
             let finishTOffset = curTOffset;
-            if (exec.script === WEAKENJS) finishTOffset += ns.getWeakenTime(exec.target);
-            if (exec.script === GROWJS) finishTOffset += ns.getGrowTime(exec.target);
-            if (exec.script === HACKJS) finishTOffset += ns.getHackTime(exec.target);
+            if (exec.script === WEAKENJS) finishTOffset += ns.getWeakenTime(exec.target, exec.hackLevelTiming);
+            if (exec.script === GROWJS) finishTOffset += ns.getGrowTime(exec.target, exec.hackLevelTiming);
+            if (exec.script === HACKJS) finishTOffset += ns.getHackTime(exec.target, exec.hackLevelTiming);
 
             const finishDiff = Math.abs(finishTOffset - exec.finish);
             if (finishDiff > this.tspacer / 2) {

@@ -19,10 +19,10 @@ const CYCLE_PRODUCTION_LOOKUP: Record<
     }
 > = {};
 
-export function getCycleProductionLookup(ns: NS, env: SmartHackEnv): CycleProduction[] {
+export function getCycleProductionLookup(ns: NS, env: SmartHackEnv, hackLvl: number): CycleProduction[] {
     if (
         CYCLE_PRODUCTION_LOOKUP[env.targetname] &&
-        CYCLE_PRODUCTION_LOOKUP[env.targetname].hack === ns.getPlayer().hacking
+        CYCLE_PRODUCTION_LOOKUP[env.targetname].hack === hackLvl
     ) {
         return CYCLE_PRODUCTION_LOOKUP[env.targetname].prod;
     }
@@ -30,7 +30,7 @@ export function getCycleProductionLookup(ns: NS, env: SmartHackEnv): CycleProduc
     // memoize cycle production statistics indexed by cycleThreadAllowance
     const cycleProductionLookup = new Array(env.maxThreads + 1).fill(null);
 
-    let hackThreads = Math.min(env.maxThreads, Math.floor(0.95 / env.hackPercentPerThread));
+    let hackThreads = Math.min(env.maxThreads, Math.floor(1 / env.hackPercentPerThread));
 
     while (hackThreads > 0) {
         hackThreads--;
@@ -94,6 +94,6 @@ export function getCycleProductionLookup(ns: NS, env: SmartHackEnv): CycleProduc
     //     Math.floor(1 / env.hackPercentPerThread)
     // );
 
-    CYCLE_PRODUCTION_LOOKUP[env.targetname] = { hack: ns.getPlayer().hacking, prod: cycleProductionLookup };
+    CYCLE_PRODUCTION_LOOKUP[env.targetname] = { hack: hackLvl, prod: cycleProductionLookup };
     return CYCLE_PRODUCTION_LOOKUP[env.targetname].prod;
 }

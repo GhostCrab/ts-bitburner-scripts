@@ -1,5 +1,5 @@
 import { NS } from "@ns";
-import { cleanLogs } from "lib/util";
+import { cleanLogs, llog } from "lib/util";
 import { HSUpgradeType } from "lib/hacknet/hs-upgrade-type";
 import { ExtendedNodeStats } from "lib/hacknet/extended-node-stats";
 import { HSUpgrade } from "lib/hacknet/hs-upgrade";
@@ -171,31 +171,29 @@ export async function main(ns: NS): Promise<void> {
             port.clear();
             port.write(JSON.stringify([totalProduction, targetUpgrade]));
 
-            const hashBuyCost = ns.hacknet.hashCost("Sell for Money");
-            let numHashBuys = Math.floor(ns.hacknet.numHashes() / hashBuyCost);
-            let effectiveMoneyAvailable = ns.getPlayer().money + numHashBuys * 1000000;
+            llog(ns, "%s", targetUpgrade.toString(ns, totalProduction));
 
-            ns.print(
-                ns.sprintf(
-                    "%s | %s",
-                    new Date().toLocaleTimeString("it-IT"),
-                    targetUpgrade.toString(ns, totalProduction)
-                )
-            );
-            while (effectiveMoneyAvailable < targetUpgrade.upgradeCost) {
-                numHashBuys = Math.floor(ns.hacknet.numHashes() / hashBuyCost);
-                effectiveMoneyAvailable = ns.getPlayer().money + numHashBuys * 1000000;
+            // const hashBuyCost = ns.hacknet.hashCost("Sell for Money");
+            // const numHashBuys = Math.floor(ns.hacknet.numHashes() / hashBuyCost);
+            // const effectiveMoneyAvailable = ns.getPlayer().money + numHashBuys * 1000000;
 
-                while (ns.hacknet.numHashes() > ns.hacknet.hashCost("Sell for Money"))
-                    ns.hacknet.spendHashes("Sell for Money");
+            // while (effectiveMoneyAvailable < targetUpgrade.upgradeCost) {
+            //     numHashBuys = Math.floor(ns.hacknet.numHashes() / hashBuyCost);
+            //     effectiveMoneyAvailable = ns.getPlayer().money + numHashBuys * 1000000;
 
+            //     while (ns.hacknet.numHashes() > ns.hacknet.hashCost("Sell for Money"))
+            //         ns.hacknet.spendHashes("Sell for Money");
+
+            //     await ns.sleep(1000);
+            // }
+
+            while (ns.getPlayer().money < targetUpgrade.upgradeCost)
                 await ns.sleep(1000);
-            }
 
             targetUpgrade.buy(ns);
         } else {
-            while (ns.hacknet.numHashes() > ns.hacknet.hashCost("Sell for Money"))
-                ns.hacknet.spendHashes("Sell for Money");
+            // while (ns.hacknet.numHashes() > ns.hacknet.hashCost("Sell for Money"))
+            //     ns.hacknet.spendHashes("Sell for Money");
 
             await ns.sleep(1000);
         }

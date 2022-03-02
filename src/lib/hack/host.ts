@@ -5,14 +5,16 @@ export type ReservedScriptCall = {
     script: string;
     host: string;
     numThreads: number;
-	target: string;
+    target: string;
+    hackLevelTiming: number;
+    hackLevelEffect: number;
     batchId: number;
     offset: number;
     operationTime: number;
-	finish: number;
-	realTimeStart: number;
-	uid: string;
-	writeFile: string;
+    finish: number;
+    realTimeStart: number;
+    uid: string;
+    writeFile: string;
 };
 
 export class Host {
@@ -47,12 +49,14 @@ export class Host {
         script: string,
         host: string,
         numThreads: number,
-		target: string,
+        target: string,
+        hackLevelTiming: number,
+        hackLevelEffect: number,
         batchId: number,
         offset: number,
         operationTime: number,
-		uid: string,
-		writeFile: string
+        uid: string,
+        writeFile: string
     ): number {
         const allocateThreads = Math.min(this.getAvailableThreads(), numThreads);
 
@@ -62,14 +66,16 @@ export class Host {
             script: script,
             host: host,
             numThreads: allocateThreads,
-			target: target,
+            target: target,
+            hackLevelTiming: hackLevelTiming,
+            hackLevelEffect: hackLevelEffect,
             batchId: batchId,
             offset: offset,
             operationTime: operationTime,
-			finish: offset + operationTime,
-			realTimeStart: 0,
-			uid: uid,
-			writeFile: writeFile
+            finish: offset + operationTime,
+            realTimeStart: 0,
+            uid: uid,
+            writeFile: writeFile,
         });
 
         return allocateThreads;
@@ -94,7 +100,7 @@ export class Host {
         if (force || !ns.fileExists(GROWJS, this.hostname)) await ns.scp(GROWJS, "home", this.hostname);
         if (force || !ns.fileExists(WEAKENJS, this.hostname)) await ns.scp(WEAKENJS, "home", this.hostname);
         if (force || !ns.fileExists(HACKJS, this.hostname)) await ns.scp(HACKJS, "home", this.hostname);
-		if (force || !ns.fileExists(UTILJS, this.hostname)) await ns.scp(UTILJS, "home", this.hostname);
+        if (force || !ns.fileExists(UTILJS, this.hostname)) await ns.scp(UTILJS, "home", this.hostname);
     }
 }
 
@@ -128,34 +134,42 @@ export function getMaxThreads(ns: NS, hosts: Host[]): number {
 export function reserveThreadsForExecution(
     ns: NS,
     script: string,
-	hosts: Host[],
+    hosts: Host[],
     numThreads: number,
-	target: string,
+    target: string,
+    hackLevelTiming: number,
+    hackLevelEffect: number,
     batchId: number,
     offset: number,
     operationTime: number,
-	uid: string,
-	writeFile: string
+    uid: string,
+    writeFile: string
 ): boolean {
-    let unallocatedThreads = numThreads;
     for (const host of hosts) {
-        unallocatedThreads -= host.tryReserveThreads(
-            ns,
-            script,
-            host.hostname,
-            unallocatedThreads,
-			target,
-            batchId,
-            offset,
-            operationTime,
-			ns.sprintf("%03d-%s-%s", batchId, uid, host.hostname),
-			writeFile
-        );
-        if (unallocatedThreads === 0) {
+        if (host.getAvailableThreads() >= numThreads) {
+            host.tryReserveThreads(
+                ns,
+                script,
+                host.hostname,
+                numThreads,
+                target,
+                hackLevelTiming,
+                hackLevelEffect,
+                batchId,
+                offset,
+                operationTime,
+                ns.sprintf("%03d-%s-%s", batchId, uid, host.hostname),
+                writeFile
+            );
             return true;
         }
     }
 
-    ns.tprintf("WARNING: Only able to allocate %d/%d %s threads", numThreads - unallocatedThreads, numThreads, script);
     return false;
+}
+
+export function clearOperationsByBatchId(hosts: Host[], batchId: number): void {
+    for (const host of hosts) {
+        host.reservedScriptCalls = host.reservedScriptCalls.filter(a => a.batchId !== batchId);
+    }
 }
