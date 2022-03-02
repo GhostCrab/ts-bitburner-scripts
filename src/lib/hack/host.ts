@@ -168,6 +168,45 @@ export function reserveThreadsForExecution(
     return false;
 }
 
+export function reserveThreadsForExecutionSloppy(
+    ns: NS,
+    script: string,
+    hosts: Host[],
+    numThreads: number,
+    target: string,
+    hackLevelTiming: number,
+    hackLevelEffect: number,
+    batchId: number,
+    offset: number,
+    operationTime: number,
+    uid: string,
+    writeFile: string
+): boolean {
+    let unallocatedThreads = numThreads;
+    for (const host of hosts) {
+        unallocatedThreads -= host.tryReserveThreads(
+            ns,
+            script,
+            host.hostname,
+            unallocatedThreads,
+			target,
+            hackLevelTiming,
+            hackLevelEffect,
+            batchId,
+            offset,
+            operationTime,
+			ns.sprintf("%03d-%s-%s", batchId, uid, host.hostname),
+			writeFile
+        );
+        if (unallocatedThreads === 0) {
+            return true;
+        }
+    }
+
+    ns.tprintf("WARNING: Only able to allocate %d/%d %s threads", numThreads - unallocatedThreads, numThreads, script);
+    return false;
+}
+
 export function clearOperationsByBatchId(hosts: Host[], batchId: number): void {
     for (const host of hosts) {
         host.reservedScriptCalls = host.reservedScriptCalls.filter(a => a.batchId !== batchId);

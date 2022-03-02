@@ -456,7 +456,7 @@ export class SmartHackEnv {
         let primaryThreadReserved = true;
         if (primaryThreadsTotal > 0) {
             if (primaryGrowThreads > 0)
-                primaryThreadReserved &= reserveThreadsForExecution(
+                primaryThreadReserved = primaryThreadReserved && reserveThreadsForExecution(
                     ns,
                     GROWJS,
                     this.hosts,
@@ -471,7 +471,7 @@ export class SmartHackEnv {
                     this.writeFile
                 );
             if (primaryWeakenThreads > 0)
-                primaryThreadReserved &= reserveThreadsForExecution(
+                primaryThreadReserved = primaryThreadReserved && reserveThreadsForExecution(
                     ns,
                     WEAKENJS,
                     this.hosts,
@@ -495,7 +495,7 @@ export class SmartHackEnv {
             if (primaryThreadsTotal > 0 && i === 0) continue;
             const cycleOffsetTime = i * this.cycleSpacer;
             let threadsReserved = true;
-            threadsReserved &= reserveThreadsForExecution(
+            threadsReserved = primaryThreadReserved && reserveThreadsForExecution(
                 ns,
                 HACKJS,
                 this.hosts,
@@ -509,7 +509,7 @@ export class SmartHackEnv {
                 "0H",
                 this.writeFile
             );
-            threadsReserved &= reserveThreadsForExecution(
+            threadsReserved = primaryThreadReserved && reserveThreadsForExecution(
                 ns,
                 GROWJS,
                 this.hosts,
@@ -523,7 +523,7 @@ export class SmartHackEnv {
                 "2G",
                 this.writeFile
             );
-            threadsReserved &= reserveThreadsForExecution(
+            threadsReserved = primaryThreadReserved && reserveThreadsForExecution(
                 ns,
                 WEAKENJS,
                 this.hosts,
@@ -537,7 +537,7 @@ export class SmartHackEnv {
                 "1WH",
                 this.writeFile
             );
-            threadsReserved &= reserveThreadsForExecution(
+            threadsReserved = primaryThreadReserved && reserveThreadsForExecution(
                 ns,
                 WEAKENJS,
                 this.hosts,
