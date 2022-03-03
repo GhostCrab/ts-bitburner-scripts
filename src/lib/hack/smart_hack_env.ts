@@ -526,6 +526,7 @@ export class SmartHackEnv {
             }
         }
 
+        // TODO: reserve weaken threads last and track which 
         for (let i = 0; i < this.cycleTotal; i++) {
             if (primaryThreadsTotal > 0 && i === 0) continue;
             const cycleOffsetTime = i * this.cycleSpacer;
