@@ -517,8 +517,8 @@ export async function main(ns: NS): Promise<void> {
                 // selling - bulk sell everything at market price until all warehouses are empty
                 let countEmptyWarehouses = 0;
                 for (const city of ns.corporation.getDivision(agDivName).cities) {
-                    const warehouse = ns.corporation.getWarehouse(agDivName, city);
-                    if (warehouse.sizeUsed < 160) countEmptyWarehouses++;
+                    const foodMat = ns.corporation.getMaterial(agDivName, city, "Food");
+                    if (foodMat.qty < 100) countEmptyWarehouses++;
                 }
 
                 if (countEmptyWarehouses === ns.corporation.getDivision(agDivName).cities.length) {
@@ -531,6 +531,7 @@ export async function main(ns: NS): Promise<void> {
             }
 
             const offer = ns.corporation.getInvestmentOffer();
+            
             llog(
                 ns,
                 "Offer: %s  (Revenue: %s)",
@@ -551,7 +552,8 @@ export async function main(ns: NS): Promise<void> {
                 break;
             }
 
-            await waitForState(ns, "START");
+            //await waitForState(ns, "START");
+            await ns.sleep(500);
         }
     }
 
@@ -604,8 +606,8 @@ export async function main(ns: NS): Promise<void> {
                 // selling - bulk sell everything at market price until all warehouses are empty
                 let countEmptyWarehouses = 0;
                 for (const city of ns.corporation.getDivision(agDivName).cities) {
-                    const warehouse = ns.corporation.getWarehouse(agDivName, city);
-                    if (warehouse.sizeUsed < 1300) countEmptyWarehouses++;
+                    const foodMat = ns.corporation.getMaterial(agDivName, city, "Food");
+                    if (foodMat.qty < 100) countEmptyWarehouses++;
                 }
 
                 if (countEmptyWarehouses === ns.corporation.getDivision(agDivName).cities.length) {
@@ -637,7 +639,8 @@ export async function main(ns: NS): Promise<void> {
                 tookOffer = true;
                 break;
             }
-            await waitForState(ns, "START");
+            
+            await ns.sleep(500)
         }
     }
 

@@ -30,10 +30,10 @@ export function getCycleProductionLookup(ns: NS, env: SmartHackEnv, hackLvl: num
     // memoize cycle production statistics indexed by cycleThreadAllowance
     const cycleProductionLookup = new Array(env.maxThreads + 1).fill(null);
 
-    let hackThreads = Math.min(env.maxThreads, Math.floor(1 / env.hackPercentPerThread));
+    let hackThreads = Math.min(env.maxThreads, Math.floor(1 / env.hackPercentPerThread)) - 1;
+    const threadStep = Math.max(Math.floor(hackThreads / 10000), 1);
 
     while (hackThreads > 0) {
-        hackThreads--;
         const hackTotal = env.hackPercentPerThread * hackThreads * env.highMoney;
         const hackSecIncrease = ns.hackAnalyzeSecurity(hackThreads);
 
@@ -42,6 +42,7 @@ export function getCycleProductionLookup(ns: NS, env: SmartHackEnv, hackLvl: num
 
         if (hackThreads + growThreads > env.maxThreads) {
             //ns.tprintf("h %d | g %d", hackThreads, growThreads)
+            hackThreads -= threadStep;
             continue;
         }
 
@@ -51,6 +52,8 @@ export function getCycleProductionLookup(ns: NS, env: SmartHackEnv, hackLvl: num
         const weakenGrowThreads = Math.ceil(growSecIncrease / env.weakenAmountPerThread);
 
         const totalThreads = hackThreads + weakenHackThreads + growThreads + weakenGrowThreads;
+
+        hackThreads -= threadStep;
 
         if (totalThreads > env.maxThreads) continue;
 

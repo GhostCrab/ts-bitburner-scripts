@@ -6,9 +6,9 @@ export async function main(ns: NS): Promise<void> {
     const cash = ns.getServerMoneyAvailable("home");
 
     if (isNaN(count)) {
-		ns.tprintf("count was not a number")
-		count = 1;
-	}
+        if (ns.args[1] !== undefined) ns.tprintf("count was not a number");
+        count = 1;
+    }
 
     if (isNaN(ram) && ns.args[0] !== "max") {
         // ns.tprintf("Calculating maximum ram allocation for new server (Cash: %s)", ns.nFormat(cash, '($0.000a)'))
@@ -72,7 +72,7 @@ export async function main(ns: NS): Promise<void> {
         ns.tprintf(
             "Unable to purchase %d server%s with %d ram (%s < %s)",
             count,
-			count > 1 ? "s" : '',
+            count > 1 ? "s" : "",
             ram,
             ns.nFormat(cash, "($0.000a)"),
             ns.nFormat(cost, "($0.000a)")

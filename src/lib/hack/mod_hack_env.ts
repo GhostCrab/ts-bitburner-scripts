@@ -25,7 +25,7 @@ type Cycle = {
     percentPerCycle: number;
 };
 
-export class SmartHackEnv {
+export class ModHackEnv {
     targetname: string;
     highMoney: number;
     lowMoney: number;
@@ -73,10 +73,10 @@ export class SmartHackEnv {
     // Batch Cycle Info
     threadsPerCycle: number;
     cycleSpacer: number;
-    cycleFullTime: number;
+    fullBatchTime: number;
     cycleMax: number;
     cycleTotal: number;
-    cycleBatchTime: number;
+    fullCycleTime: number;
 
     primaryStats: {
         primaryThreadsTotal: number;
@@ -139,10 +139,10 @@ export class SmartHackEnv {
         // Batch Cycle Info
         this.threadsPerCycle = 0;
         this.cycleSpacer = this.tspacer * 4;
-        this.cycleFullTime = 0; // this.weakenTime + this.tspacer * 2;
+        this.fullBatchTime = 0; // this.weakenTime + this.tspacer * 2;
         this.cycleMax = 0; // Math.floor(this.cycleFitTime / this.cycleSpacer)
         this.cycleTotal = 0;
-        this.cycleBatchTime = 0; // this.cycleFullTime + this.cycleSpacer * this.cycleTotal
+        this.fullCycleTime = 0; // this.cycleFullTime + this.cycleSpacer * this.cycleTotal
 
         this.primaryStats = {
             primaryThreadsTotal: 0,
@@ -293,7 +293,25 @@ export class SmartHackEnv {
         return Math.ceil(threads);
     }
 
-    async refresh(ns: NS): Promise<boolean> {
+    hackLevelForHackTime(ns: NS, ms: number): number {
+        if (this.simEnabled) return ns.formulas.hacking.hackLevelForTime(this.simTarget, this.simPlayer, ms);
+
+        return ns.formulas.hacking.hackLevelForTime(ns.getServer(this.targetname), ns.getPlayer(), ms);
+    }
+
+    hackLevelForGrowTime(ns: NS, ms: number): number {
+        if (this.simEnabled) return ns.formulas.hacking.growLevelForTime(this.simTarget, this.simPlayer, ms);
+
+        return ns.formulas.hacking.growLevelForTime(ns.getServer(this.targetname), ns.getPlayer(), ms);
+    }
+
+    hackLevelForWeakenTime(ns: NS, ms: number): number {
+        if (this.simEnabled) return ns.formulas.hacking.weakenLevelForTime(this.simTarget, this.simPlayer, ms);
+
+        return ns.formulas.hacking.weakenLevelForTime(ns.getServer(this.targetname), ns.getPlayer(), ms);
+    }
+
+    async refresh(ns: NS, targetMs = Number.MAX_SAFE_INTEGER): Promise<boolean> {
         if (this.isWRunning(ns)) {
             // process in progress, wait for next refresh to update
             await ns.sleep(1000);
@@ -301,12 +319,7 @@ export class SmartHackEnv {
         }
 
         // Player State
-        let playerHackLvlTiming = ns.getPlayer().hacking;
         const playerHackLvlEffect = ns.getPlayer().hacking;
-
-        if (this.getWeakenTime(ns, playerHackLvlTiming) < 120000) {
-            playerHackLvlTiming = Math.max(this.getWeakenLevelForTime(ns, 120000), Number.MIN_VALUE);
-        }
 
         // Host state
         this.maxThreads = getMaxThreads(ns, this.hosts);
@@ -319,25 +332,72 @@ export class SmartHackEnv {
         this.security = this.getServerSecurityLevel(ns);
 
         // Hack Info
-        this.hackTime = this.getHackTime(ns, playerHackLvlTiming);
         this.hackPercentPerThread = this.hackAnalyze(ns, true, playerHackLvlEffect);
 
         this.hackThreads = 1 / this.hackPercentPerThread - 1;
         this.hackTotal = this.hackPercentPerThread * this.hackThreads * this.money;
         this.hackSecIncrease = ns.hackAnalyzeSecurity(this.hackThreads);
 
-        // Grow Info
-        this.growTime = this.getGrowTime(ns, playerHackLvlTiming);
-
         // Weaken Info
-        this.weakenTime = this.getWeakenTime(ns, playerHackLvlTiming);
         this.weakenAmountPerThread = ns.weakenAnalyze(1, this.cores);
 
         // Cycle Info
-        this.cycleFullTime = this.weakenTime + this.tspacer * 2;
         this.cycleMax = Math.max(Math.floor((this.hackTime - this.tspacer) / this.cycleSpacer), 1);
 
         this.threadsPerCycle = this.hackThreads + this.weakenHackThreads + this.growThreads + this.weakenGrowThreads;
+
+        /////////////////////////////////////
+        // space HWGW operations out such that they start 400ms apart and they finish 400ms apart
+        // stretch Hack time to the longest possbible time
+        // batch starts take spacer * 4 time, how many batch starts can fit in the length of maxHackTime
+        //
+        // create an array of hack levels for each cycle count
+        /////////////////////////////////////
+
+        // what is the hack level required to achieve 1 cycle?
+        // timing would be such that hack would finish 400ms after grow-weaken started
+        // each hack level timing implies first hack finishes <spacer> ms after last grow-weaken starts
+
+        // batch time = spacer * 4
+        // cycle 1: hack time = batch time
+        // cycle 2: hack time = batch time * 2
+
+        // if the result of hackLevelForTime is > player.hacking, limit it to player.hacking (these will be low cycle counts)
+        // if the result of hackLevelForTime is <= 0, discard this result and cycleMax is one less than this iteration.
+
+        const cycleLevels: { [key: string]: { hackLevel: number; fullBatchTime: number; fullCycleTime: number } } = {};
+
+        let cycleCount = 0;
+        const fastWeakenTime = this.getWeakenTime(ns);
+        while (true) {
+            cycleCount++;
+            const targetHackTime = Math.max(this.cycleSpacer * cycleCount, fastWeakenTime);
+            const hackLevel = Math.min(this.hackLevelForHackTime(ns, targetHackTime), ns.getPlayer().hacking);
+
+            if (hackLevel <= 0) {
+                break;
+            }
+
+            const actualHackTime = this.getHackTime(ns, hackLevel);
+            const fullBatchTime = actualHackTime + this.cycleSpacer * 3;
+            const fullCycleTime = fullBatchTime + this.cycleSpacer * (cycleCount - 1);
+
+            if (fullCycleTime > targetMs && targetHackTime > fastWeakenTime)
+                break;
+
+            cycleLevels[cycleCount] = {
+                hackLevel: hackLevel,
+                fullBatchTime: fullBatchTime,
+                fullCycleTime: fullCycleTime,
+            };
+        }
+
+        // for (const [_cycleTotal, data] of Object.entries(cycleLevels)) {
+        //     const cycleTotal = Number(_cycleTotal);
+        //     ns.tprintf("%d: %.2f - %s %s", _cycleTotal, data.hackLevel, stFormat(ns, data.fullBatchTime, true), stFormat(ns, data.fullCycleTime, true));
+        // }
+
+        this.cycleMax = Object.keys(cycleLevels).length;
 
         // Primary Cycle Info
         const primaryGrowMult = Math.max(this.highMoney / this.money, 1);
@@ -357,14 +417,15 @@ export class SmartHackEnv {
         }
 
         // memoize cycle production statistics indexed by cycleThreadAllowance
-        const cycleProductionLookup = getCycleProductionLookup(ns, this, playerHackLvlEffect);
+        const cycleProductionLookup = await getCycleProductionLookup(ns, this, playerHackLvlEffect);
 
         // Get all cycle combination production statistics
         let allCycles: Cycle[] = [];
-        for (let cycleTotal = 1; cycleTotal <= this.cycleMax; cycleTotal++) {
+        for (const [_cycleTotal, data] of Object.entries(cycleLevels)) {
+            const cycleTotal = Number(_cycleTotal);
             const usableThreads = this.maxThreads - primaryThreadsTotal;
             const usableCycles = primaryThreadsTotal > 0 ? cycleTotal - 1 : cycleTotal;
-            const fullCycleTime = this.cycleFullTime + this.cycleSpacer * (cycleTotal - 1);
+            const fullCycleTime = data.fullCycleTime;
 
             const cycleThreadAllowance = Math.floor(usableThreads / usableCycles);
 
@@ -422,7 +483,7 @@ export class SmartHackEnv {
             this.weakenHackThreads = 0;
             this.weakenGrowThreads = 0;
             this.cycleTotal = 1;
-            this.cycleBatchTime = Number.MAX_SAFE_INTEGER;
+            this.fullCycleTime = Number.MAX_SAFE_INTEGER;
             this.primaryStats = {
                 primaryThreadsTotal: primaryThreadsTotal,
                 primaryGrowThreads: primaryGrowThreads,
@@ -438,19 +499,28 @@ export class SmartHackEnv {
         this.weakenHackThreads = cycleTarget.weakenHackThreads;
         this.weakenGrowThreads = cycleTarget.weakenGrowThreads;
         this.cycleTotal = cycleTarget.cycleTotal;
-        this.cycleBatchTime = cycleTarget.fullCycleTime;
+        this.fullCycleTime = cycleTarget.fullCycleTime;
         this.primaryStats = {
             primaryThreadsTotal: primaryThreadsTotal,
             primaryGrowThreads: primaryGrowThreads,
             primaryWeakenThreads: primaryWeakenThreads,
         };
 
+        this.fullBatchTime = cycleLevels[this.cycleTotal].fullBatchTime;
+        const playerHackLvlHackTiming = cycleLevels[this.cycleTotal].hackLevel;
+        this.hackTime = this.getHackTime(ns, playerHackLvlHackTiming);
+        const playerHackLvlGrowTiming = this.hackLevelForGrowTime(ns, this.hackTime);
+        this.growTime = this.getGrowTime(ns, playerHackLvlGrowTiming);
+        const playerHackLvlWeakenTiming = this.hackLevelForWeakenTime(ns, this.hackTime);
+        this.weakenTime = this.getGrowTime(ns, playerHackLvlWeakenTiming);
+
         // dont do thread reservation and execution if this is a simulation
         if (this.simEnabled) return true;
 
-        const weakenGrowOffsetTime = this.tspacer * 2;
-        const growOffsetTime = this.weakenTime + this.tspacer - this.growTime;
-        const hackOffsetTime = this.weakenTime - this.hackTime - this.tspacer;
+        const hackOffsetTime = 0;
+        const weakenHackOffsetTime = this.tspacer * 1;
+        const growOffsetTime = this.tspacer * 2;
+        const weakenGrowOffsetTime = this.tspacer * 3;
 
         let primaryThreadReserved = true;
         if (primaryThreadsTotal > 0) {
@@ -463,7 +533,7 @@ export class SmartHackEnv {
                         this.hosts,
                         primaryGrowThreads,
                         this.targetname,
-                        playerHackLvlTiming,
+                        playerHackLvlGrowTiming,
                         playerHackLvlEffect,
                         0,
                         growOffsetTime,
@@ -480,7 +550,7 @@ export class SmartHackEnv {
                         this.hosts,
                         primaryWeakenThreads,
                         this.targetname,
-                        playerHackLvlTiming,
+                        playerHackLvlWeakenTiming,
                         playerHackLvlEffect,
                         0,
                         weakenGrowOffsetTime,
@@ -490,39 +560,8 @@ export class SmartHackEnv {
                     );
 
             if (!primaryThreadReserved) {
-                llog(ns, "WARNING: Unable to reserve primary threads cleanly");
+                throw "ERROR: Unable to reserve primary threads";
                 clearOperationsByBatchId(this.hosts, 0);
-
-                if (primaryGrowThreads > 0)
-                    reserveThreadsForExecutionSloppy(
-                        ns,
-                        GROWJS,
-                        this.hosts,
-                        primaryGrowThreads,
-                        this.targetname,
-                        playerHackLvlTiming,
-                        playerHackLvlEffect,
-                        0,
-                        growOffsetTime,
-                        this.growTime,
-                        "0PG",
-                        this.writeFile
-                    );
-                if (primaryWeakenThreads > 0)
-                    reserveThreadsForExecutionSloppy(
-                        ns,
-                        WEAKENJS,
-                        this.hosts,
-                        primaryWeakenThreads,
-                        this.targetname,
-                        playerHackLvlTiming,
-                        playerHackLvlEffect,
-                        0,
-                        weakenGrowOffsetTime,
-                        this.weakenTime,
-                        "1PW",
-                        this.writeFile
-                    );
             }
         }
 
@@ -538,7 +577,7 @@ export class SmartHackEnv {
                     this.hosts,
                     this.hackThreads,
                     this.targetname,
-                    playerHackLvlTiming,
+                    playerHackLvlHackTiming,
                     playerHackLvlEffect,
                     i,
                     cycleOffsetTime + hackOffsetTime,
@@ -554,7 +593,7 @@ export class SmartHackEnv {
                     this.hosts,
                     this.growThreads,
                     this.targetname,
-                    playerHackLvlTiming,
+                    playerHackLvlGrowTiming,
                     playerHackLvlEffect,
                     i,
                     cycleOffsetTime + growOffsetTime,
@@ -570,10 +609,10 @@ export class SmartHackEnv {
                     this.hosts,
                     this.weakenHackThreads,
                     this.targetname,
-                    playerHackLvlTiming,
+                    playerHackLvlWeakenTiming,
                     playerHackLvlEffect,
                     i,
-                    cycleOffsetTime,
+                    cycleOffsetTime + weakenHackOffsetTime,
                     this.weakenTime,
                     "1WH",
                     this.writeFile
@@ -586,7 +625,7 @@ export class SmartHackEnv {
                     this.hosts,
                     this.weakenGrowThreads,
                     this.targetname,
-                    playerHackLvlTiming,
+                    playerHackLvlWeakenTiming,
                     playerHackLvlEffect,
                     i,
                     cycleOffsetTime + weakenGrowOffsetTime,
@@ -596,69 +635,9 @@ export class SmartHackEnv {
                 );
 
             if (!threadsReserved) {
-                if (this.cycleTotal > 1) {
-                    llog(ns, "WARNING: Unable to Reserve batch %d", i);
-                    this.cycleTotal--;
-                    clearOperationsByBatchId(this.hosts, i);
-                } else {
-                    llog(ns, "WARNING: Only reserving one bad batch");
-                    reserveThreadsForExecutionSloppy(
-                        ns,
-                        HACKJS,
-                        this.hosts,
-                        this.hackThreads,
-                        this.targetname,
-                        playerHackLvlTiming,
-                        playerHackLvlEffect,
-                        i,
-                        cycleOffsetTime + hackOffsetTime,
-                        this.hackTime,
-                        "0H",
-                        this.writeFile
-                    );
-                    reserveThreadsForExecutionSloppy(
-                        ns,
-                        GROWJS,
-                        this.hosts,
-                        this.growThreads,
-                        this.targetname,
-                        playerHackLvlTiming,
-                        playerHackLvlEffect,
-                        i,
-                        cycleOffsetTime + growOffsetTime,
-                        this.growTime,
-                        "2G",
-                        this.writeFile
-                    );
-                    reserveThreadsForExecutionSloppy(
-                        ns,
-                        WEAKENJS,
-                        this.hosts,
-                        this.weakenHackThreads,
-                        this.targetname,
-                        playerHackLvlTiming,
-                        playerHackLvlEffect,
-                        i,
-                        cycleOffsetTime,
-                        this.weakenTime,
-                        "1WH",
-                        this.writeFile
-                    );
-                    reserveThreadsForExecutionSloppy(
-                        ns,
-                        WEAKENJS,
-                        this.hosts,
-                        this.weakenGrowThreads,
-                        this.targetname,
-                        playerHackLvlTiming,
-                        playerHackLvlEffect,
-                        i,
-                        cycleOffsetTime + weakenGrowOffsetTime,
-                        this.weakenTime,
-                        "3WG",
-                        this.writeFile
-                    );
-                }
+                llog(ns, "Warning: Unable to Reserve batch %d", i);
+                this.cycleTotal--;
+                clearOperationsByBatchId(this.hosts, i);
             }
         }
 
@@ -667,7 +646,7 @@ export class SmartHackEnv {
         port.write(
             JSON.stringify([
                 new Date(),
-                this.cycleBatchTime,
+                this.fullCycleTime,
                 this.targetname,
                 ns.getScriptIncome(ns.getScriptName(), ns.getHostname(), ...ns.args).toString(),
                 "SMART",
@@ -683,7 +662,9 @@ export class SmartHackEnv {
     }
 
     debugPrintCycleStats(ns: NS, primaryThreadsTotal: number, allCycles: Cycle[]): void {
+        let counter = 0;
         for (const cycle of allCycles) {
+            if (++counter > 400) return;
             let batchThreads =
                 cycle.hackThreads + cycle.growThreads + cycle.weakenHackThreads + cycle.weakenGrowThreads;
             if (cycle.hackThreads === undefined) batchThreads = 0;
@@ -693,7 +674,7 @@ export class SmartHackEnv {
             }
             const cycleMem = cycleThreads * this.threadSize;
             ns.tprintf(
-                "%3d;%s  %9s/s %5.2f %d/%4d/%5d %6dGB, %s|%s|%s|%s",
+                "%3d;%s  %9s/s %5.2f %d/%4d/%5d %6dGB, %s|%s|%s|%s %s",
                 cycle.cycleTotal,
                 this.targetname,
                 ns.nFormat(cycle.production, "($0.000a)"),
@@ -705,7 +686,8 @@ export class SmartHackEnv {
                 cycle.hackThreads,
                 cycle.growThreads,
                 cycle.weakenHackThreads,
-                cycle.weakenGrowThreads
+                cycle.weakenGrowThreads,
+                stFormat(ns, cycle.fullCycleTime)
             );
         }
     }
@@ -748,16 +730,16 @@ export class SmartHackEnv {
             ns.nFormat(this.hackTotal * this.cycleTotal, "($0.000a)"),
             percentPerCycle,
             percentPerCycle * this.cycleTotal,
-            ns.nFormat(((this.hackTotal * this.cycleTotal) / this.cycleBatchTime) * 1000, "($0.000a)")
+            ns.nFormat(((this.hackTotal * this.cycleTotal) / this.fullCycleTime) * 1000, "($0.000a)")
         );
 
         llog(
             ns,
             "SMART: %s => Complete %s; Total %s; Active -%s",
             this.targetname,
-            stdFormat(ns, this.cycleBatchTime, true),
-            stFormat(ns, this.cycleBatchTime, true),
-            stFormat(ns, this.cycleBatchTime - this.weakenTime, true)
+            stdFormat(ns, this.fullCycleTime, true),
+            stFormat(ns, this.fullCycleTime, true),
+            stFormat(ns, this.fullCycleTime - this.weakenTime, true)
         );
     }
 
@@ -797,28 +779,28 @@ export class SmartHackEnv {
                 continue;
             }
 
-            let finishTOffset = curTOffset;
-            if (exec.script === WEAKENJS) finishTOffset += ns.getWeakenTime(exec.target, exec.hackLevelTiming);
-            if (exec.script === GROWJS) finishTOffset += ns.getGrowTime(exec.target, exec.hackLevelTiming);
-            if (exec.script === HACKJS) finishTOffset += ns.getHackTime(exec.target, exec.hackLevelTiming);
+            // let finishTOffset = curTOffset;
+            // if (exec.script === WEAKENJS) finishTOffset += ns.getWeakenTime(exec.target, exec.hackLevelTiming);
+            // if (exec.script === GROWJS) finishTOffset += ns.getGrowTime(exec.target, exec.hackLevelTiming);
+            // if (exec.script === HACKJS) finishTOffset += ns.getHackTime(exec.target, exec.hackLevelTiming);
 
-            const finishDiff = Math.abs(finishTOffset - exec.finish);
-            if (finishDiff > this.tspacer / 2) {
-                execs = execs.filter((a) => a.batchId !== exec.batchId);
-                ns.print(
-                    ns.sprintf(
-                        "WARNING: %s:%s #%d finish time was off by %dms (limit is +- %d) and the batch was canceled  e: %s c: %s",
-                        exec.target,
-                        exec.script,
-                        exec.batchId,
-                        finishTOffset - exec.finish,
-                        this.tspacer / 2,
-                        stFormat(ns, exec.finish, true),
-                        stFormat(ns, finishTOffset, true)
-                    )
-                );
-                continue;
-            }
+            // const finishDiff = Math.abs(finishTOffset - exec.finish);
+            // if (finishDiff > this.tspacer / 2) {
+            //     execs = execs.filter((a) => a.batchId !== exec.batchId);
+            //     ns.print(
+            //         ns.sprintf(
+            //             "WARNING: %s:%s #%d finish time was off by %dms (limit is +- %d) and the batch was canceled  e: %s c: %s",
+            //             exec.target,
+            //             exec.script,
+            //             exec.batchId,
+            //             finishTOffset - exec.finish,
+            //             this.tspacer / 2,
+            //             stFormat(ns, exec.finish, true),
+            //             stFormat(ns, finishTOffset, true)
+            //         )
+            //     );
+            //     continue;
+            // }
 
             const pid = ns.exec(exec.script, exec.host, exec.numThreads, JSON.stringify(exec));
             if (waitPIDFinishTime <= exec.finish) {
@@ -861,8 +843,8 @@ export class SmartHackEnv {
 
         while (true) {
             if (simState === 0) {
-                const result = await this.refresh(ns);
-                if (simTime + this.cycleBatchTime > time || !result) break;
+                const result = await this.refresh(ns, time - simTime);
+                if (simTime + this.fullCycleTime > time || !result) break;
 
                 if (this.primaryStats.primaryThreadsTotal === 0) simState = 1;
                 this.simTarget.moneyAvailable *= ns.formulas.hacking.growPercent(
@@ -876,13 +858,13 @@ export class SmartHackEnv {
                 this.simTarget.hackDifficulty = Math.max(this.simTarget.minDifficulty, this.simTarget.hackDifficulty);
 
                 simIncome += this.hackTotal * (this.cycleTotal - 1);
-                simTime += this.cycleBatchTime;
+                simTime += this.fullCycleTime;
             } else {
                 const timeRemaining = time - simTime;
-                const cyclesRemaining = Math.floor(timeRemaining / this.cycleBatchTime);
+                const cyclesRemaining = Math.floor(timeRemaining / this.fullCycleTime);
 
                 simIncome += this.hackTotal * this.cycleTotal * cyclesRemaining;
-                simTime += this.cycleBatchTime * cyclesRemaining;
+                simTime += this.fullCycleTime * cyclesRemaining;
 
                 break;
             }
@@ -894,7 +876,7 @@ export class SmartHackEnv {
             ns.tprintf(
                 "%s - %s (%s / %s)",
                 this.targetname,
-                stFormat(ns, this.cycleBatchTime),
+                stFormat(ns, this.fullCycleTime),
                 this.simTarget.hackDifficulty,
                 this.simTarget.minDifficulty
             );
