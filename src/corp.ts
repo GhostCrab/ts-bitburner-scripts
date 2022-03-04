@@ -100,6 +100,8 @@ async function doAgSell(ns: NS, selloff: boolean): Promise<void> {
                 ]);
             }
 
+            await waitForState(ns);
+
             for (const [city, warehouse] of Object.entries(agDiv.warehouses)) {
                 if (warehouse) {
                     for (const matName of Object.keys(warehouse.materials)) {
