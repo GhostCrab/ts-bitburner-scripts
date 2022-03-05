@@ -73,10 +73,10 @@ export class SmartHackEnv {
     // Batch Cycle Info
     threadsPerCycle: number;
     cycleSpacer: number;
-    cycleFullTime: number;
+    fullBatchTime: number;
     cycleMax: number;
     cycleTotal: number;
-    cycleBatchTime: number;
+    fullCycleTime: number;
 
     primaryStats: {
         primaryThreadsTotal: number;
@@ -139,10 +139,10 @@ export class SmartHackEnv {
         // Batch Cycle Info
         this.threadsPerCycle = 0;
         this.cycleSpacer = this.tspacer * 4;
-        this.cycleFullTime = 0; // this.weakenTime + this.tspacer * 2;
-        this.cycleMax = 0; // Math.floor(this.cycleFitTime / this.cycleSpacer)
+        this.fullBatchTime = 0;
+        this.cycleMax = 0;
         this.cycleTotal = 0;
-        this.cycleBatchTime = 0; // this.cycleFullTime + this.cycleSpacer * this.cycleTotal
+        this.fullCycleTime = 0;
 
         this.primaryStats = {
             primaryThreadsTotal: 0,
@@ -334,7 +334,7 @@ export class SmartHackEnv {
         this.weakenAmountPerThread = ns.weakenAnalyze(1, this.cores);
 
         // Cycle Info
-        this.cycleFullTime = this.weakenTime + this.tspacer * 2;
+        this.fullBatchTime = this.weakenTime + this.tspacer * 2;
         this.cycleMax = Math.max(Math.floor((this.hackTime - this.tspacer) / this.cycleSpacer), 1);
 
         this.threadsPerCycle = this.hackThreads + this.weakenHackThreads + this.growThreads + this.weakenGrowThreads;
@@ -364,7 +364,7 @@ export class SmartHackEnv {
         for (let cycleTotal = 1; cycleTotal <= this.cycleMax; cycleTotal++) {
             const usableThreads = this.maxThreads - primaryThreadsTotal;
             const usableCycles = primaryThreadsTotal > 0 ? cycleTotal - 1 : cycleTotal;
-            const fullCycleTime = this.cycleFullTime + this.cycleSpacer * (cycleTotal - 1);
+            const fullCycleTime = this.fullBatchTime + this.cycleSpacer * (cycleTotal - 1);
 
             const cycleThreadAllowance = Math.floor(usableThreads / usableCycles);
 
@@ -422,7 +422,7 @@ export class SmartHackEnv {
             this.weakenHackThreads = 0;
             this.weakenGrowThreads = 0;
             this.cycleTotal = 1;
-            this.cycleBatchTime = Number.MAX_SAFE_INTEGER;
+            this.fullCycleTime = Number.MAX_SAFE_INTEGER;
             this.primaryStats = {
                 primaryThreadsTotal: primaryThreadsTotal,
                 primaryGrowThreads: primaryGrowThreads,
@@ -438,7 +438,7 @@ export class SmartHackEnv {
         this.weakenHackThreads = cycleTarget.weakenHackThreads;
         this.weakenGrowThreads = cycleTarget.weakenGrowThreads;
         this.cycleTotal = cycleTarget.cycleTotal;
-        this.cycleBatchTime = cycleTarget.fullCycleTime;
+        this.fullCycleTime = cycleTarget.fullCycleTime;
         this.primaryStats = {
             primaryThreadsTotal: primaryThreadsTotal,
             primaryGrowThreads: primaryGrowThreads,
@@ -527,7 +527,8 @@ export class SmartHackEnv {
         }
 
         // TODO: reserve weaken threads last and track which 
-        for (let i = 0; i < this.cycleTotal; i++) {
+        const allCycleTotal = this.cycleTotal;
+        for (let i = 0; i < allCycleTotal; i++) {
             if (primaryThreadsTotal > 0 && i === 0) continue;
             const cycleOffsetTime = i * this.cycleSpacer;
             let threadsReserved = true;
@@ -668,7 +669,7 @@ export class SmartHackEnv {
         port.write(
             JSON.stringify([
                 new Date(),
-                this.cycleBatchTime,
+                this.fullCycleTime,
                 this.targetname,
                 ns.getScriptIncome(ns.getScriptName(), ns.getHostname(), ...ns.args).toString(),
                 "SMART",
@@ -749,16 +750,16 @@ export class SmartHackEnv {
             ns.nFormat(this.hackTotal * this.cycleTotal, "($0.000a)"),
             percentPerCycle,
             percentPerCycle * this.cycleTotal,
-            ns.nFormat(((this.hackTotal * this.cycleTotal) / this.cycleBatchTime) * 1000, "($0.000a)")
+            ns.nFormat(((this.hackTotal * this.cycleTotal) / this.fullCycleTime) * 1000, "($0.000a)")
         );
 
         llog(
             ns,
             "SMART: %s => Complete %s; Total %s; Active -%s",
             this.targetname,
-            stdFormat(ns, this.cycleBatchTime, true),
-            stFormat(ns, this.cycleBatchTime, true),
-            stFormat(ns, this.cycleBatchTime - this.weakenTime, true)
+            stdFormat(ns, this.fullCycleTime, true),
+            stFormat(ns, this.fullCycleTime, true),
+            stFormat(ns, this.fullCycleTime - this.weakenTime, true)
         );
     }
 
@@ -863,7 +864,7 @@ export class SmartHackEnv {
         while (true) {
             if (simState === 0) {
                 const result = await this.refresh(ns);
-                if (simTime + this.cycleBatchTime > time || !result) break;
+                if (simTime + this.fullCycleTime > time || !result) break;
 
                 if (this.primaryStats.primaryThreadsTotal === 0) simState = 1;
                 this.simTarget.moneyAvailable *= ns.formulas.hacking.growPercent(
@@ -877,13 +878,13 @@ export class SmartHackEnv {
                 this.simTarget.hackDifficulty = Math.max(this.simTarget.minDifficulty, this.simTarget.hackDifficulty);
 
                 simIncome += this.hackTotal * (this.cycleTotal - 1);
-                simTime += this.cycleBatchTime;
+                simTime += this.fullCycleTime;
             } else {
                 const timeRemaining = time - simTime;
-                const cyclesRemaining = Math.floor(timeRemaining / this.cycleBatchTime);
+                const cyclesRemaining = Math.floor(timeRemaining / this.fullCycleTime);
 
                 simIncome += this.hackTotal * this.cycleTotal * cyclesRemaining;
-                simTime += this.cycleBatchTime * cyclesRemaining;
+                simTime += this.fullCycleTime * cyclesRemaining;
 
                 break;
             }
@@ -895,7 +896,7 @@ export class SmartHackEnv {
             ns.tprintf(
                 "%s - %s (%s / %s)",
                 this.targetname,
-                stFormat(ns, this.cycleBatchTime),
+                stFormat(ns, this.fullCycleTime),
                 this.simTarget.hackDifficulty,
                 this.simTarget.minDifficulty
             );

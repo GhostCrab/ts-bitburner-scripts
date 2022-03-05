@@ -231,21 +231,21 @@
    bladeburner_success_chance_mult?: number;
  }
  
-/**
- * Options to affect the behavior of {@link NS.hack | hack}, {@link NS.grow | grow}, and {@link NS.weaken | weaken}.
- * @public
- */
+ /**
+  * Options to affect the behavior of {@link NS.hack | hack}, {@link NS.grow | grow}, and {@link NS.weaken | weaken}.
+  * @public
+  */
  export declare interface BasicHGWOptions {
-  /** Number of threads to use for this function. Must be less than or equal to the number of threads the script is running with. */
-  threads?: number;
-  /** Set to true this action will affect the stock market. */
-  stock?: boolean;
-  /** Override hack skill level for purposes of HGW timing. Must be less than or equal to the player's hack level. */
-  hackOverrideTiming?: number;
-  /** Override hack skill level for purposes of HGW effect. Must be less than or equal to the player's hack level. 
-  *    Only affects magnitude of hack operations*/
-  hackOverrideEffect?: number;
-}
+   /** Number of threads to use for this function. Must be less than or equal to the number of threads the script is running with. */
+   threads?: number;
+   /** Set to true this action will affect the stock market. */
+   stock?: boolean;
+   /** Override hack skill level for purposes of HGW timing. Must be less than or equal to the player's hack level. */
+   hackOverrideTiming?: number;
+   /** Override hack skill level for purposes of HGW effect. Must be less than or equal to the player's hack level. 
+   *    Only affects magnitude of hack operations*/
+   hackOverrideEffect?: number;
+ }
  
  /**
   * Options to affect the behavior of {@link CodingContract} attempt.
@@ -908,9 +908,9 @@
    /** Name of the gang member */
    name: string;
    /** Currently assigned task */
-   task: string;  
+   task: string;
    earnedRespect: number;
-   
+ 
    /** Hack skill level */
    hack: number;
    /** Strength skill level */
@@ -2277,7 +2277,7 @@
     * @returns True if the focus was changed.
     */
    setFocus(focus: boolean): boolean;
- 
+
    heart: {break(): number};
  }
  
@@ -4357,7 +4357,7 @@
     * @returns The amount by which the target server’s security level was decreased. This is equivalent to 0.05 multiplied by the number of script threads.
     */
    weaken(host: string, opts?: BasicHGWOptions): Promise<number>;
- 
+
    /**
     * Predict the effect of weaken.
     * @remarks
@@ -5420,6 +5420,7 @@
     * @returns max ram (GB)
     */
    getServerMaxRam(host: string): number;
+ 
    /**
     * Get the used RAM on a server.
     * @remarks
@@ -6251,6 +6252,57 @@
     * RAM cost: 0.2 GB
     */
    getSharePower(): number;
+ 
+   /**
+    * Suppress security level increases on a server.
+    * @remarks
+    * RAM cost: 1.9 GB
+    *
+    * Use your hacking skills to suppress security increases on a server due to hack or grow operations.
+    * The functions effect will act continuously in the background as long as the function is running.
+    * 
+    * A server's suppression statistic grows at a constant rate regardless of how many suppression threads
+    * are targeting it. The number of suppress threads targeting a server only affects the magnitude
+    * of the suppression statistic's drop when a hack or grow operation targets the server. More suppress
+    * threads mean a smaller drop in the suppression statistic, potentially making it easier to keep the
+    * suppression statistic above 100% when a server is under constant attack.
+    *
+    * By default, this command never returns, but an optional parameter can be provided to have it return
+    * after some number of milliseconds.
+    *
+    * Like hack, grow, and weaken, `suppress` can be called on any server, regardless of
+    * where the script is running. This command requires root access to the target server, but
+    * there is no required hacking level to run the command.
+    *
+    * ```
+    * @param host - Hostname of the target server to suppress.
+    * @param operatingTime - How many milliseconds suppress should run. Optional. Defaults to Infinity. 
+    * @returns The current suppression level of the target server.
+    */
+   suppress(host: string, operatingTime?: number): Promise<number>;
+ 
+   /**
+    * Get the suppression percentage of a server.
+    * @remarks
+    * RAM cost: 0.05 GB
+    *
+    * @param host - Hostname of the target server.
+    * @returns used ram (GB)
+    */
+   getServerSuppression(host: string): number;
+ 
+   /**
+    * Get the effect of a number of hack and grow threads on a server's suppression statistic based
+    * on the suppression currently acting on the server.
+    * @remarks
+    * RAM cost: 1.0 GB
+    * 
+    * @param host - Hostname of the target server.
+    * @param hackThreads - Number of hack threads that would be acting on the server. Optional. Defaults to 0.
+    * @param growThreads - Number of grow threads that would be acting on the server. Optional. Defaults to 0.
+    * @returns amount suppression would be reduced
+    */
+   suppressAnalyze(host: string, hackThreads?: number, growThreads?: number): number;
  }
  
  /**
