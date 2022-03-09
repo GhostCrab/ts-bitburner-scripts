@@ -132,6 +132,13 @@ export function getMaxThreads(ns: NS, hosts: Host[]): number {
     return maxThreads;
 }
 
+export function mockReserveThreads(ns: NS, hosts: Host[], numThreads: number, batchId: number, sloppy = false): void {
+    if (sloppy)
+        return reserveThreadsForExecutionSloppy(ns, "", hosts, numThreads, "", 0, 0, 0, 0, 0, "", "")
+    else 
+        return reserveThreadsForExecution(ns, "", hosts, numThreads, "", 0, 0, 0, 0, 0, "", "")
+}
+
 export function reserveThreadsForExecution(
     ns: NS,
     script: string,

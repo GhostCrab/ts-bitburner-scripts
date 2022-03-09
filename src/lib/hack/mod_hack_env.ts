@@ -9,6 +9,7 @@ import {
     getMaxThreads,
     ReservedScriptCall,
     clearOperationsByBatchId,
+    mockReserveThreads,
 } from "lib/hack/host";
 
 export const TSPACER = 400;
@@ -24,6 +25,42 @@ type Cycle = {
     weakenGrowThreads: number;
     percentPerCycle: number;
 };
+
+function clearAllBatches(hosts: Host[]) {
+    for (const host of hosts) {
+        host.reset();
+    }
+}
+
+function mockPrimaryBatch(ns: NS, hosts: Host[], primaryGrowThreads: number, primaryWeakenThreads: number) {
+    let threadsReserved = true;
+    if (primaryGrowThreads > 0)
+        threadsReserved = threadsReserved && mockReserveThreads(ns, hosts, primaryGrowThreads, 0, true);
+    if (primaryWeakenThreads > 0)
+        threadsReserved = threadsReserved && mockReserveThreads(ns, hosts, primaryWeakenThreads, 0, true);
+
+    return threadsReserved;
+}
+
+function mockBatch(
+    ns: NS,
+    hosts: Host[],
+    batchID: nubmer,
+    hackThreads: number,
+    growThreads: number,
+    weakenHackThreads: number,
+    weakenGrowThreads: number
+) {
+    let threadsReserved = true;
+    if (hackThreads > 0) threadsReserved = threadsReserved && mockReserveThreads(ns, hosts, hackThreads, batchID);
+    if (growThreads > 0) threadsReserved = threadsReserved && mockReserveThreads(ns, hosts, growThreads, batchID);
+    if (weakenHackThreads > 0)
+        threadsReserved = threadsReserved && mockReserveThreads(ns, hosts, weakenHackThreads, batchID, true);
+    if (weakenGrowThreads > 0)
+        threadsReserved = threadsReserved && mockReserveThreads(ns, hosts, weakenGrowThreads, batchID, true);
+
+    return threadsReserved;
+}
 
 function sloppyPrimaryBatch(
     ns: NS,
@@ -560,7 +597,7 @@ export class ModHackEnv {
         return ns.formulas.hacking.weakenLevelForTime(ns.getServer(this.targetname), ns.getPlayer(), ms);
     }
 
-    async refresh(ns: NS, targetMs = Number.MAX_SAFE_INTEGER): Promise<boolean> {
+    async refresh(ns: NS, targetMs = Number.MAX_SAFE_INTEGER, fastCheck = false): Promise<boolean> {
         if (this.isWRunning(ns)) {
             // process in progress, wait for next refresh to update
             await ns.sleep(1000);
@@ -626,7 +663,7 @@ export class ModHackEnv {
             if (hackLevel <= 0) {
                 break;
             }
-
+            
             const actualHackTime = this.getHackTime(ns, hackLevel);
             const fullBatchTime = actualHackTime + this.cycleSpacer * 3;
             const fullCycleTime = fullBatchTime + this.cycleSpacer * (cycleCount - 1);
@@ -698,10 +735,36 @@ export class ModHackEnv {
                 ns.print(ns.sprintf("WARNING: Thread Total %s is undefined", cycleThreadAllowance));
                 continue;
             }
+
+            let actualBatches = 0;
+            if (fastCheck) {
+                actualBatches = usableCycles;
+            } else {
+                const doPrimary = primaryThreadsTotal > 0;
+                    if (doPrimary) mockPrimaryBatch(ns, this.hosts, primaryGrowThreads, primaryWeakenThreads);
+
+                for (let batchID = doPrimary ? 1 : 0; batchID < cycleTotal; batchID++) {
+                    const result = mockBatch(
+                        ns,
+                        this.hosts,
+                        batchID,
+                        cycleStats.hackThreads,
+                        cycleStats.growThreads,
+                        cycleStats.weakenHackThreads,
+                        cycleStats.weakenGrowThreads
+                    );
+
+                    if (result) actualBatches++;
+                    else break;
+                }
+
+                clearAllBatches(this.hosts);
+            }
+
             allCycles.push({
                 cycleTotal: cycleTotal,
                 hackTotal: cycleStats.hackTotal,
-                production: (usableCycles * cycleStats.hackTotal) / (fullCycleTime / 1000),
+                production: (actualBatches * cycleStats.hackTotal) / (fullCycleTime / 1000),
                 fullCycleTime: fullCycleTime,
                 hackThreads: cycleStats.hackThreads,
                 growThreads: cycleStats.growThreads,
@@ -758,10 +821,19 @@ export class ModHackEnv {
         // dont do thread reservation and execution if this is a simulation
         if (this.simEnabled) return true;
 
+        // const weakenGrowOffsetTime = this.tspacer * 2;
+        // const growOffsetTime = this.weakenTime + this.tspacer - this.growTime;
+        // const hackOffsetTime = this.weakenTime - this.hackTime - this.tspacer;
+
         const hackOffsetTime = 0;
         const weakenHackOffsetTime = this.tspacer * 1;
         const growOffsetTime = this.tspacer * 2;
         const weakenGrowOffsetTime = this.tspacer * 3;
+
+        // const hackOffsetTime = Math.max(this.weakenTime - this.hackTime - this.tspacer, 0);
+        // const weakenHackOffsetTime = Math.max(this.tspacer - this.weakenTime - this.hackTime, 0);
+        // const growOffsetTime = this.tspacer * 2;
+        // const weakenGrowOffsetTime = this.tspacer * 3;
 
         if (primaryThreadsTotal > 0) {
             const threadsReserved = cleanPrimaryBatch(
@@ -1037,7 +1109,7 @@ export class ModHackEnv {
 
         while (true) {
             if (simState === 0) {
-                const result = await this.refresh(ns, time - simTime);
+                const result = await this.refresh(ns, time - simTime, true);
                 if (!result) break;
 
                 if (this.primaryStats.primaryThreadsTotal === 0) simState = 1;
