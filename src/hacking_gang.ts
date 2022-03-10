@@ -80,7 +80,8 @@ export async function main(ns: NS): Promise<void> {
                     ns.gang.getEquipmentStats(_name)
                 )
             )
-            .filter((eq) => eq.hack !== undefined || eq.cha !== undefined)
+            //.filter((eq) => eq.hack !== undefined || eq.cha !== undefined)
+            .filter((eq) => eq.hack !== undefined)
             .sort((a, b) => a.price - b.price);
 
         // for (const eq of combatEquipment) {

@@ -88,7 +88,7 @@ export class Host {
         // if this host is home, reserve 64GB of ram for other stuff
         if (this.hostname === "home") {
             //const homeram = ns.getServerMaxRam(this.hostname) - 1024 - 64;
-            const homeram = ns.getServerMaxRam(this.hostname) - 64;
+            const homeram = ns.getServerMaxRam(this.hostname) - 128;
             this.maxThreads = Math.max(0, Math.floor(homeram / this.threadSize));
         }
 
