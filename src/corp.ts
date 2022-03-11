@@ -115,7 +115,7 @@ async function doAgSell(ns: NS, selloff: boolean): Promise<void> {
                                 mat.marketTa2 = false;
                                 const sellPrice = getMaterialPrice(agDivName, city, mat.name) + "";
                                 //ns.tprintf("selling %s:%s:%s", city, mat.name, sellPrice)
-                                ns.corporation.sellMaterial(agDivName, city, mat.name, "MAX", sellPrice);
+                                ns.corporation.sellMaterial(agDivName, city, mat.name, "MAX", "MP*0.5");
                             } else {
                                 mat.marketTa2 = false;
                                 ns.corporation.sellMaterial(agDivName, city, mat.name, "0", "0");
@@ -629,8 +629,8 @@ export async function main(ns: NS): Promise<void> {
                 ns.nFormat(ns.corporation.getCorporation().revenue, "(0.000a)")
             );
 
-            //only take offers over $4t
-            if (offer.funds > 4000000000000) {
+            //only take offers over $2.5t
+            if (offer.funds > 2500000000000) {
                 ns.corporation.acceptInvestmentOffer();
                 llog(
                     ns,
