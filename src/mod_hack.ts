@@ -41,6 +41,7 @@ export async function main(ns: NS): Promise<void> {
     }
 
     const env = new ModHackEnv(ns, orderedTargetArr[0].target, executableHosts);
+    await ns.sleep(2000);
 
     await env.init(ns, true);
     while (await env.refresh(ns, minutes * 60 * 1000));
