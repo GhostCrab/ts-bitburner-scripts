@@ -80,11 +80,11 @@ export class Augmentation {
         if (this.stats.hacking_money_mult) return true;
         if (this.stats.hacking_mult) return true;
         if (this.stats.hacking_speed_mult) return true;
-        // if (this.stats.hacknet_node_core_cost_mult) return true;
-        // if (this.stats.hacknet_node_level_cost_mult) return true;
-        // if (this.stats.hacknet_node_money_mult) return true;
-        // if (this.stats.hacknet_node_purchase_cost_mult) return true;
-        // if (this.stats.hacknet_node_ram_cost_mult) return true;
+        if (this.stats.hacknet_node_core_cost_mult) return true;
+        if (this.stats.hacknet_node_level_cost_mult) return true;
+        if (this.stats.hacknet_node_money_mult) return true;
+        if (this.stats.hacknet_node_purchase_cost_mult) return true;
+        if (this.stats.hacknet_node_ram_cost_mult) return true;
         if (
             this.name === "BitRunners Neurolink" ||
             this.name === "CashRoot Starter Kit" ||
