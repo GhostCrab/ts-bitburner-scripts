@@ -44,6 +44,9 @@ export async function main(ns: NS): Promise<void> {
         }
     }
 
+    if (ns.args[0])
+        return;
+
     if (
         ns.checkFactionInvitations().includes("Chongqing") &&
         !ns.getOwnedAugmentations(true).includes("Neuregen Gene Modification")
