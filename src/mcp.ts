@@ -213,19 +213,21 @@ export async function main(ns: NS): Promise<void> {
     }
 
     // see how many Neuroflux Governors we can buy
-	let neurofluxFactionIdx = 0;
-	while (neurofluxFactionIdx < sortedFactions.length) {
-		if(ns.gang.inGang() && ns.gang.getGangInformation().faction === sortedFactions[neurofluxFactionIdx]) {
-			neurofluxFactionIdx++
-		} else if(sortedFactions[neurofluxFactionIdx] === "Bladeburners") {
+    let neurofluxFactionIdx = 0;
+    while (neurofluxFactionIdx < sortedFactions.length) {
+        if (ns.gang.inGang() && ns.gang.getGangInformation().faction === sortedFactions[neurofluxFactionIdx]) {
+            neurofluxFactionIdx++;
+        } else if (sortedFactions[neurofluxFactionIdx] === "Bladeburners") {
+            neurofluxFactionIdx++;
+        } else if(sortedFactions[neurofluxFactionIdx] === "Church of the Machine God") {
 			neurofluxFactionIdx++
 		} else {
-			break;
-		}
-	}
+            break;
+        }
+    }
 
-
-    const topFactionForNeuroflux = neurofluxFactionIdx >= sortedFactions.length ? "" : sortedFactions[neurofluxFactionIdx];
+    const topFactionForNeuroflux =
+        neurofluxFactionIdx >= sortedFactions.length ? "" : sortedFactions[neurofluxFactionIdx];
     const topFactionRep =
         topFactionForNeuroflux !== ""
             ? (ns.getPlayer().currentWorkFactionName === topFactionForNeuroflux ? ns.getPlayer().workRepGained : 0) +

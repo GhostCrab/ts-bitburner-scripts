@@ -69,7 +69,7 @@ export class Augmentation {
 
     isHackUseful(): boolean {
 		if (this.name === "Neuroflux Governor") return false;
-        //return true;
+        return true;
         // if (this.stats.crime_money_mult) return true;
         // if (this.stats.crime_success_mult) return true;
         if (this.stats.company_rep_mult) return true;
