@@ -113,7 +113,10 @@ export async function main(ns: NS): Promise<void> {
         }
 
         for (const buy of newBuys) {
-            if (ns.getPlayer().money * 0.25 > buy.equipment.price) {
+            if (
+                (ns.getPlayer().money * 0.25 > buy.equipment.price && buy.equipment.price < 1000000000) ||
+                ns.getPlayer().money * 0.01 > buy.equipment.price
+            ) {
                 const result = ns.gang.purchaseEquipment(buy.member.name, buy.equipment.name);
                 if (result)
                     ns.print(
