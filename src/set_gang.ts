@@ -2,7 +2,7 @@ import { NS } from "@ns";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data: string, args: string): string[] {
-    return ["hack", "terror", "money"];
+    return ["hack", "terror", "money", "cha"];
 }
 
 export async function main(ns: NS): Promise<void> {
@@ -13,6 +13,12 @@ export async function main(ns: NS): Promise<void> {
     if (ns.args[0] === undefined || ns.args[0] === "hack") {
         for (const member of members) {
             ns.gang.setMemberTask(member.name, "Train Hacking");
+        }
+    }
+
+    if (ns.args[0] === "cha") {
+        for (const member of members) {
+            ns.gang.setMemberTask(member.name, "Train Charisma");
         }
     }
 
