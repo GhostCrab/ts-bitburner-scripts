@@ -4,12 +4,16 @@ import { getCycleProductionLookup } from "lib/hack/cycle_production";
 import {
     Host,
     generateHosts,
-    reserveThreadsForExecution,
-    reserveThreadsForExecutionSloppy,
     getMaxThreads,
     ReservedScriptCall,
     clearOperationsByBatchId,
-    mockReserveThreads,
+    mockPrimaryBatch,
+    mockBatch,
+    clearAllBatches,
+    cleanPrimaryBatch,
+    sloppyPrimaryBatch,
+    cleanBatch,
+    sloppyBatch
 } from "lib/hack/host";
 
 export const TSPACER = 400;
@@ -25,291 +29,6 @@ type Cycle = {
     weakenGrowThreads: number;
     percentPerCycle: number;
 };
-
-function clearAllBatches(hosts: Host[]) {
-    for (const host of hosts) {
-        host.reset();
-    }
-}
-
-function mockPrimaryBatch(ns: NS, hosts: Host[], primaryGrowThreads: number, primaryWeakenThreads: number) {
-    let threadsReserved = true;
-    if (primaryGrowThreads > 0)
-        threadsReserved = threadsReserved && mockReserveThreads(ns, hosts, primaryGrowThreads, 0, true);
-    if (primaryWeakenThreads > 0)
-        threadsReserved = threadsReserved && mockReserveThreads(ns, hosts, primaryWeakenThreads, 0, true);
-
-    return threadsReserved;
-}
-
-function mockBatch(
-    ns: NS,
-    hosts: Host[],
-    batchID: nubmer,
-    hackThreads: number,
-    growThreads: number,
-    weakenHackThreads: number,
-    weakenGrowThreads: number
-) {
-    let threadsReserved = true;
-    if (hackThreads > 0) threadsReserved = threadsReserved && mockReserveThreads(ns, hosts, hackThreads, batchID);
-    if (growThreads > 0) threadsReserved = threadsReserved && mockReserveThreads(ns, hosts, growThreads, batchID);
-    if (weakenHackThreads > 0)
-        threadsReserved = threadsReserved && mockReserveThreads(ns, hosts, weakenHackThreads, batchID, true);
-    if (weakenGrowThreads > 0)
-        threadsReserved = threadsReserved && mockReserveThreads(ns, hosts, weakenGrowThreads, batchID, true);
-
-    return threadsReserved;
-}
-
-function sloppyPrimaryBatch(
-    ns: NS,
-    env: ModHackEnv,
-    playerHackLvlGrowTiming: number,
-    playerHackLvlWeakenTiming: number,
-    playerHackLvlEffect: number,
-    growOffsetTime: number,
-    weakenGrowOffsetTime: number,
-    primaryGrowThreads: number,
-    primaryWeakenThreads: number
-): void {
-    if (primaryGrowThreads > 0)
-        reserveThreadsForExecutionSloppy(
-            ns,
-            GROWJS,
-            env.hosts,
-            primaryGrowThreads,
-            env.targetname,
-            playerHackLvlGrowTiming,
-            playerHackLvlEffect,
-            0,
-            growOffsetTime,
-            env.growTime,
-            "0PG",
-            env.writeFile
-        );
-    if (primaryWeakenThreads > 0)
-        reserveThreadsForExecutionSloppy(
-            ns,
-            WEAKENJS,
-            env.hosts,
-            primaryWeakenThreads,
-            env.targetname,
-            playerHackLvlWeakenTiming,
-            playerHackLvlEffect,
-            0,
-            weakenGrowOffsetTime,
-            env.weakenTime,
-            "1PW",
-            env.writeFile
-        );
-}
-
-function cleanPrimaryBatch(
-    ns: NS,
-    env: ModHackEnv,
-    playerHackLvlGrowTiming: number,
-    playerHackLvlWeakenTiming: number,
-    playerHackLvlEffect: number,
-    growOffsetTime: number,
-    weakenGrowOffsetTime: number,
-    primaryGrowThreads: number,
-    primaryWeakenThreads: number
-): boolean {
-    let threadsReserved = true;
-
-    if (primaryGrowThreads > 0)
-        threadsReserved =
-            threadsReserved &&
-            reserveThreadsForExecution(
-                ns,
-                GROWJS,
-                env.hosts,
-                primaryGrowThreads,
-                env.targetname,
-                playerHackLvlGrowTiming,
-                playerHackLvlEffect,
-                0,
-                growOffsetTime,
-                env.growTime,
-                "0PG",
-                env.writeFile
-            );
-    if (primaryWeakenThreads > 0)
-        threadsReserved =
-            threadsReserved &&
-            reserveThreadsForExecutionSloppy(
-                ns,
-                WEAKENJS,
-                env.hosts,
-                primaryWeakenThreads,
-                env.targetname,
-                playerHackLvlWeakenTiming,
-                playerHackLvlEffect,
-                0,
-                weakenGrowOffsetTime,
-                env.weakenTime,
-                "1PW",
-                env.writeFile
-            );
-
-    return threadsReserved;
-}
-
-function sloppyBatch(
-    ns: NS,
-    env: ModHackEnv,
-    batchId: number,
-    playerHackLvlHackTiming: number,
-    playerHackLvlGrowTiming: number,
-    playerHackLvlWeakenTiming: number,
-    playerHackLvlEffect: number,
-    hackOffsetTime: number,
-    growOffsetTime: number,
-    weakenHackOffsetTime: number,
-    weakenGrowOffsetTime: number
-): void {
-    const cycleOffsetTime = batchId * env.cycleSpacer;
-    reserveThreadsForExecutionSloppy(
-        ns,
-        HACKJS,
-        env.hosts,
-        env.hackThreads,
-        env.targetname,
-        playerHackLvlHackTiming,
-        playerHackLvlEffect,
-        batchId,
-        cycleOffsetTime + hackOffsetTime,
-        env.hackTime,
-        "0H",
-        env.writeFile
-    );
-    reserveThreadsForExecutionSloppy(
-        ns,
-        GROWJS,
-        env.hosts,
-        env.growThreads,
-        env.targetname,
-        playerHackLvlGrowTiming,
-        playerHackLvlEffect,
-        batchId,
-        cycleOffsetTime + growOffsetTime,
-        env.growTime,
-        "2G",
-        env.writeFile
-    );
-    reserveThreadsForExecutionSloppy(
-        ns,
-        WEAKENJS,
-        env.hosts,
-        env.weakenHackThreads,
-        env.targetname,
-        playerHackLvlWeakenTiming,
-        playerHackLvlEffect,
-        batchId,
-        cycleOffsetTime + weakenHackOffsetTime,
-        env.weakenTime,
-        "1WH",
-        env.writeFile
-    );
-    reserveThreadsForExecutionSloppy(
-        ns,
-        WEAKENJS,
-        env.hosts,
-        env.weakenGrowThreads,
-        env.targetname,
-        playerHackLvlWeakenTiming,
-        playerHackLvlEffect,
-        batchId,
-        cycleOffsetTime + weakenGrowOffsetTime,
-        env.weakenTime,
-        "3WG",
-        env.writeFile
-    );
-}
-
-function cleanBatch(
-    ns: NS,
-    env: ModHackEnv,
-    batchId: number,
-    playerHackLvlHackTiming: number,
-    playerHackLvlGrowTiming: number,
-    playerHackLvlWeakenTiming: number,
-    playerHackLvlEffect: number,
-    hackOffsetTime: number,
-    growOffsetTime: number,
-    weakenHackOffsetTime: number,
-    weakenGrowOffsetTime: number
-): boolean {
-    const cycleOffsetTime = batchId * env.cycleSpacer;
-    let threadsReserved = true;
-    threadsReserved =
-        threadsReserved &&
-        reserveThreadsForExecution(
-            ns,
-            HACKJS,
-            env.hosts,
-            env.hackThreads,
-            env.targetname,
-            playerHackLvlHackTiming,
-            playerHackLvlEffect,
-            batchId,
-            cycleOffsetTime + hackOffsetTime,
-            env.hackTime,
-            "0H",
-            env.writeFile
-        );
-    threadsReserved =
-        threadsReserved &&
-        reserveThreadsForExecution(
-            ns,
-            GROWJS,
-            env.hosts,
-            env.growThreads,
-            env.targetname,
-            playerHackLvlGrowTiming,
-            playerHackLvlEffect,
-            batchId,
-            cycleOffsetTime + growOffsetTime,
-            env.growTime,
-            "2G",
-            env.writeFile
-        );
-    threadsReserved =
-        threadsReserved &&
-        reserveThreadsForExecutionSloppy(
-            ns,
-            WEAKENJS,
-            env.hosts,
-            env.weakenHackThreads,
-            env.targetname,
-            playerHackLvlWeakenTiming,
-            playerHackLvlEffect,
-            batchId,
-            cycleOffsetTime + weakenHackOffsetTime,
-            env.weakenTime,
-            "1WH",
-            env.writeFile
-        );
-    threadsReserved =
-        threadsReserved &&
-        reserveThreadsForExecutionSloppy(
-            ns,
-            WEAKENJS,
-            env.hosts,
-            env.weakenGrowThreads,
-            env.targetname,
-            playerHackLvlWeakenTiming,
-            playerHackLvlEffect,
-            batchId,
-            cycleOffsetTime + weakenGrowOffsetTime,
-            env.weakenTime,
-            "3WG",
-            env.writeFile
-        );
-
-    return threadsReserved;
-}
 
 export class ModHackEnv {
     targetname: string;
@@ -702,7 +421,7 @@ export class ModHackEnv {
         }
 
         // memoize cycle production statistics indexed by cycleThreadAllowance
-        const cycleProductionLookup = await getCycleProductionLookup(ns, this, playerHackLvlEffect);
+        const cycleProductionLookup = getCycleProductionLookup(ns, this, playerHackLvlEffect);
 
         // Get all cycle combination production statistics
         let allCycles: Cycle[] = [];
@@ -821,19 +540,10 @@ export class ModHackEnv {
         // dont do thread reservation and execution if this is a simulation
         if (this.simEnabled) return true;
 
-        // const weakenGrowOffsetTime = this.tspacer * 2;
-        // const growOffsetTime = this.weakenTime + this.tspacer - this.growTime;
-        // const hackOffsetTime = this.weakenTime - this.hackTime - this.tspacer;
-
         const hackOffsetTime = 0;
         const weakenHackOffsetTime = this.tspacer * 1;
         const growOffsetTime = this.tspacer * 2;
         const weakenGrowOffsetTime = this.tspacer * 3;
-
-        // const hackOffsetTime = Math.max(this.weakenTime - this.hackTime - this.tspacer, 0);
-        // const weakenHackOffsetTime = Math.max(this.tspacer - this.weakenTime - this.hackTime, 0);
-        // const growOffsetTime = this.tspacer * 2;
-        // const weakenGrowOffsetTime = this.tspacer * 3;
 
         if (primaryThreadsTotal > 0) {
             const threadsReserved = cleanPrimaryBatch(
@@ -1044,29 +754,6 @@ export class ModHackEnv {
                 );
                 continue;
             }
-
-            // let finishTOffset = curTOffset;
-            // if (exec.script === WEAKENJS) finishTOffset += ns.getWeakenTime(exec.target, exec.hackLevelTiming);
-            // if (exec.script === GROWJS) finishTOffset += ns.getGrowTime(exec.target, exec.hackLevelTiming);
-            // if (exec.script === HACKJS) finishTOffset += ns.getHackTime(exec.target, exec.hackLevelTiming);
-
-            // const finishDiff = Math.abs(finishTOffset - exec.finish);
-            // if (finishDiff > this.tspacer / 2) {
-            //     execs = execs.filter((a) => a.batchId !== exec.batchId);
-            //     ns.print(
-            //         ns.sprintf(
-            //             "WARNING: %s:%s #%d finish time was off by %dms (limit is +- %d) and the batch was canceled  e: %s c: %s",
-            //             exec.target,
-            //             exec.script,
-            //             exec.batchId,
-            //             finishTOffset - exec.finish,
-            //             this.tspacer / 2,
-            //             stFormat(ns, exec.finish, true),
-            //             stFormat(ns, finishTOffset, true)
-            //         )
-            //     );
-            //     continue;
-            // }
 
             const pid = ns.exec(exec.script, exec.host, exec.numThreads, JSON.stringify(exec));
             if (waitPIDFinishTime <= exec.finish) {
