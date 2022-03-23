@@ -2,13 +2,17 @@ import { NS } from "@ns";
 import { allHosts } from "lib/util";
 
 function answerCCT(ns: NS, cct: CCT, answer: number | string[]) {
-    const reward = ns.codingcontract.attempt(answer, cct.name, cct.host, { returnReward: true });
+    try {
+        const reward = ns.codingcontract.attempt(answer, cct.name, cct.host, { returnReward: true });
 
-    if (reward === "") {
-        ns.tprintf("ERROR: Failed to solve %s:%s of type %s", cct.host, cct.name, cct.type);
-        ns.tprintf("  data: %s; answer: %s", cct.data.toString(), answer.toString());
-    } else {
-        ns.tprintf("SUCCESS: Solved %s:%s => %s", cct.host, cct.name, reward);
+        if (reward === "") {
+            ns.tprintf("ERROR: Failed to solve %s:%s of type %s", cct.host, cct.name, cct.type);
+            ns.tprintf("  data: %s; answer: %s", cct.data.toString(), answer.toString());
+        } else {
+            ns.tprintf("SUCCESS: Solved %s:%s => %s", cct.host, cct.name, reward);
+        }
+    } catch (e) {
+        ns.tprintf("Caught Exception: %s", e);
     }
 }
 
