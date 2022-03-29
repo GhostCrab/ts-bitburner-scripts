@@ -22,10 +22,13 @@ export async function main(ns: NS): Promise<void> {
         name: string;
         stats: AugmentationStats;
     }[] = [];
+
+
+
     for (let sleeveId = 0; sleeveId < ns.sleeve.getNumSleeves(); sleeveId++) {
         for (const aug of ns.sleeve.getSleevePurchasableAugs(sleeveId)) {
             const stats = ns.getAugmentationStats(aug.name);
-            if (isHackUseful(stats)) {
+            if (isHackUseful(stats) || ns.args[0]) {
                 purchaseableAugs.push({
                     sleeveId: sleeveId,
                     cost: aug.cost,
