@@ -12,6 +12,7 @@ type targetIncome = {
 };
 
 export async function main(ns: NS): Promise<void> {
+    ns.tail(); 
     cleanLogs(ns);
     doBuyAndSoftenAll(ns);
 
