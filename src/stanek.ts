@@ -129,11 +129,12 @@ export async function main(ns: NS): Promise<void> {
         [6, [0, 1]], // 3
         [7, [0, 1, 2, 3]], // 4
         [25, [0, 1, 2, 3]], // 4
+        [28, [0, 1, 2, 3]], // 4
         [100, [0, 1, 2, 3]], // 4
         [101, [0, 1, 2, 3]], // 4
         [102, [0, 1, 2, 3]], // 4
         [103, [0, 1, 2, 3]], // 4
-        [104, [0, 1, 2, 3]], // 4
+        // [104, [0, 1, 2, 3]], // 4
         // [105, [0, 1, 2, 3]], // 4
         // [106, [0, 1, 2, 3]], // 4
         // [107, [0, 1, 2, 3]], // 4
@@ -147,7 +148,12 @@ export async function main(ns: NS): Promise<void> {
 
     ns.stanek.clear();
 
+    let watchdog = 0;
+
     async function doPlacement(frag, x, y, rot) {
+        if (watchdog++ % 1000 === 0) {
+            await ns.sleep(0);
+        }
         //ns.tprintf("Attempting to place %d at %d,%d,%d", fragmentIDs[frag][0], x, y, rot);
 
         if (ns.stanek.place(x, y, rot, fragmentIDs[frag][0])) {
