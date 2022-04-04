@@ -219,9 +219,7 @@ export async function main(ns: NS): Promise<void> {
             neurofluxFactionIdx++;
         } else if (sortedFactions[neurofluxFactionIdx] === "Bladeburners") {
             neurofluxFactionIdx++;
-        } else if(sortedFactions[neurofluxFactionIdx] === "Church of the Machine God") {
-			neurofluxFactionIdx++
-		} else {
+        } else {
             break;
         }
     }

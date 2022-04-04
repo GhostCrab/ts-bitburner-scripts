@@ -123,19 +123,19 @@ export async function main(ns: NS): Promise<void> {
 
     // array of fragments, each fragment is an ID and an array of valid rotations
     const fragmentIDs = [
-        [100, [0, 1, 2, 3]], // 4
+        //[100, [0, 1, 2, 3]], // 4
         [0, [0, 1]], // 0
-        [101, [0, 1, 2, 3]], // 4
+        //[101, [0, 1, 2, 3]], // 4
         [1, [0, 1]], // 1
-        [102, [0, 1, 2, 3]], // 4
+        //[102, [0, 1, 2, 3]], // 4
         [5, [0, 1, 2, 3]], // 2
-        [103, [0, 1, 2, 3]], // 4
+        //[103, [0, 1, 2, 3]], // 4
         [6, [0, 1]], // 3
-        [104, [0, 1, 2, 3]], // 4
+        //[104, [0, 1, 2, 3]], // 4
         [7, [0, 1, 2, 3]], // 4
-        [105, [0, 1, 2, 3]], // 4
+        //[105, [0, 1, 2, 3]], // 4
         [25, [0, 1, 2, 3]], // 4
-        [106, [0, 1, 2, 3]], // 4
+        //[106, [0, 1, 2, 3]], // 4
         [28, [0, 1, 2, 3]], // 4
         // [107, [0, 1, 2, 3]], // 4
     ];
@@ -146,7 +146,7 @@ export async function main(ns: NS): Promise<void> {
     // if all rotations cant be placed, move to next cell and iterate over all rotations
     // if all cells have been checked, roll back to earlier piece and rotate it.
 
-    ns.stanek.clear();
+    ns.stanek.clearGift();
 
     let watchdog = 0;
 
@@ -156,7 +156,7 @@ export async function main(ns: NS): Promise<void> {
         }
         //ns.tprintf("Attempting to place %d at %d,%d,%d", fragmentIDs[frag][0], x, y, rot);
 
-        if (ns.stanek.place(x, y, rot, fragmentIDs[frag][0])) {
+        if (ns.stanek.placeFragment(x, y, rot, fragmentIDs[frag][0])) {
             if (frag === fragmentIDs.length - 1) return true;
 
             //ns.tprintf("Placed %d at %d,%d,%d", fragmentIDs[frag][0], x, y, rot);
@@ -170,7 +170,7 @@ export async function main(ns: NS): Promise<void> {
                 //     y,
                 //     rot
                 // );
-                ns.stanek.remove(x, y);
+                ns.stanek.removeFragment(x, y);
             } else {
                 return true;
             }
@@ -178,9 +178,9 @@ export async function main(ns: NS): Promise<void> {
 
         if (rot + 1 < fragmentIDs[frag][1].length) return await doPlacement(frag, x, y, rot + 1);
 
-        if (x + 1 < ns.stanek.width()) return await doPlacement(frag, x + 1, y, 0);
+        if (x + 1 < ns.stanek.giftWidth()) return await doPlacement(frag, x + 1, y, 0);
 
-        if (y + 1 < ns.stanek.height()) return await doPlacement(frag, 0, y + 1, 0);
+        if (y + 1 < ns.stanek.giftHeight()) return await doPlacement(frag, 0, y + 1, 0);
 
         return false;
     }
