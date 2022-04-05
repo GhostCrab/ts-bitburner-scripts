@@ -16,7 +16,9 @@ export async function main(ns: NS): Promise<void> {
             ps.filename === "hacking_gang.js" ||
             ps.filename === "corp.js" ||
             ps.filename === "cct.js" ||
-			ps.filename === "bladeburner.js"
+			ps.filename === "bladeburner.js" ||
+            ps.filename === "market.js" ||
+            ps.filename === "cheap_market.js"
         )
             continue;
         ns.kill(ps.pid);
