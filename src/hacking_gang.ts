@@ -108,9 +108,9 @@ export async function main(ns: NS): Promise<void> {
 
         newBuys.sort((a, b) => a.equipment.price - b.equipment.price);
 
-        if (ns.getPlayer().money >= ns.getUpgradeHomeRamCost()) {
-            ns.upgradeHomeRam();
-        }
+        // if (ns.getPlayer().money >= ns.getUpgradeHomeRamCost()) {
+        //     ns.upgradeHomeRam();
+        // }
 
         for (const buy of newBuys) {
             if (
